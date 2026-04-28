@@ -40,7 +40,7 @@ export interface CompileWithReportResult extends CompileWithLayersResult {
 
 export type { CompiledLayerRole, CompiledSummaryLayer, CompileWithLayersResult } from "./compaction-state";
 
-const HEADER_NAMES = ["Evidence Handles", "Recent Evidence Handles", "Recent User Preferences", "Recent Scope Updates", ...CURRENT_SECTION_ORDER];
+const HEADER_NAMES = ["Evidence Handles", "Recent Evidence Handles", "Recent Commits", "Recent User Preferences", "Recent Scope Updates", ...CURRENT_SECTION_ORDER];
 
 const SEPARATOR = "\n\n---\n\n";
 
@@ -75,6 +75,7 @@ const briefOf = (text: string): string => {
 /** Merge a header section */
 const mergeHeaderSection = (header: string, prev: string, fresh: string): string => {
   if (header === "Evidence Handles") return prev || fresh;
+  if (header === "Commits") return prev || fresh;
   if (header === "User Preferences" && prev && fresh && !/\b(correction|never)\b/i.test(fresh)) return prev;
   // Keep established scope stable; additive fresh scope is rendered later.
   if (header === "Current Scope") return prev || fresh;
@@ -154,6 +155,13 @@ const freshRecentEvidenceSection = (prevEvidence: string, freshEvidence: string)
   return freshOnly.length > 0 ? `[Recent Evidence Handles]\n${freshOnly.join("\n")}` : "";
 };
 
+const freshRecentCommitsSection = (prevCommits: string, freshCommits: string): string => {
+  if (!prevCommits || !freshCommits) return "";
+  const previous = new Set(cleanListItemsOf(prevCommits));
+  const freshOnly = cleanListItemsOf(freshCommits).filter((line) => !previous.has(line));
+  return freshOnly.length > 0 ? `[Recent Commits]\n${freshOnly.join("\n")}` : "";
+};
+
 const freshRecentScopeSection = (prevScope: string, freshScope: string): string => {
   if (!prevScope || !freshScope) return "";
   const previous = new Set(cleanListItemsOf(prevScope));
@@ -199,11 +207,13 @@ const mergePrevious = (prev: string, fresh: string): string => {
   const mergeFresh = demoteFreshGoalToScope(fresh);
   // Merge header sections
   const recentEvidence = freshRecentEvidenceSection(sectionOf(prev, "Evidence Handles"), sectionOf(mergeFresh, "Evidence Handles"));
+  const recentCommits = freshRecentCommitsSection(sectionOf(prev, "Commits"), sectionOf(mergeFresh, "Commits"));
   const recentUserPreferences = freshRecentUserPreferencesSection(sectionOf(prev, "User Preferences"), sectionOf(mergeFresh, "User Preferences"));
   const recentScope = freshRecentScopeSection(sectionOf(prev, "Current Scope"), sectionOf(mergeFresh, "Current Scope"));
   const headers = HEADER_NAMES
     .map((header) => {
       if (header === "Recent Evidence Handles") return recentEvidence;
+      if (header === "Recent Commits") return recentCommits;
       if (header === "Recent User Preferences") return recentUserPreferences;
       if (header === "Recent Scope Updates") return recentScope;
       const freshSec = sectionOf(mergeFresh, header);

@@ -755,6 +755,28 @@ const CACHE_BOUNDARIES: Record<string, CacheBoundary> = {
       "Pi VCC Recent Evidence Handles": 260,
     },
   },
+  "cache-bust-commit-growth": {
+    allowedFirstChangedLayers: [
+      "Pi VCC Recent Commits",
+      "Pi VCC Brief Transcript",
+      "Kept Raw Tail",
+    ],
+    minStablePrefixTokens: 115,
+    maxPromptLayerSizes: {
+      "Pi VCC Recent Commits": 520,
+    },
+  },
+  "cache-bust-long-evidence-line": {
+    allowedFirstChangedLayers: [
+      "Pi VCC Recent Evidence Handles",
+      "Pi VCC Brief Transcript",
+      "Kept Raw Tail",
+    ],
+    minStablePrefixTokens: 105,
+    maxPromptLayerSizes: {
+      "Pi VCC Recent Evidence Handles": 260,
+    },
+  },
 };
 
 export const failedCacheGatesOf = (cycle: CycleMetrics): string[] => {

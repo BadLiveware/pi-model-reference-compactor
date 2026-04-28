@@ -103,12 +103,18 @@ Pi splits the conversation at the **last user message**. Everything after — th
 [Commits]
 - a1b2c3d: fix(auth): refresh token after password reset
 
-[Outstanding Context]
-- lint check still failing on line 42
-
 [User Preferences]
 - Prefer Vietnamese responses
 - Always run tests before committing
+
+[Current Scope]
+- Update token refresh tests
+
+[Recent Commits]
+- b2c3d4e: test(auth): cover token refresh
+
+[Outstanding Context]
+- lint check still failing on line 42
 
 [user]
 Fix the auth bug, users can't log in after password reset
@@ -127,18 +133,22 @@ Sections appear only when relevant — a session with no git commits won't have 
 
 | Section | Description |
 |---|---|
-| `[Session Goal]` | Initial goal + scope changes (regex-based extraction) |
-| `[Files And Changes]` | Modified/created files from tool calls (capped, paths trimmed to common root) |
-| `[Commits]` | Git commits made during the session (last 8, hash + first line) |
-| `[Outstanding Context]` | Unresolved items — errors, pending questions |
-| `[User Preferences]` | Regex-extracted from user messages (`always`, `never`, `prefer`...) |
+| `[Session Goal]` | Durable objective and initial task context |
+| `[Files And Changes]` | Modified/created/read files from tool calls (capped, paths trimmed to common root) |
+| `[Commits]` | Established git commits already part of stable current state |
+| `[Evidence Handles]` | Established paths, error signatures, request IDs, spans, probes, and labeled commit hashes |
+| `[User Preferences]` | Established regex-extracted preferences (`always`, `never`, `prefer`...) |
+| `[Current Scope]` | Durable current scope once established |
+| `[Recent Commits]`, `[Recent Scope Updates]`, `[Recent User Preferences]`, `[Recent Evidence Handles]` | Fresh additive facts isolated late to protect stable prompt-cache prefixes |
+| `[Outstanding Context]` | Volatile unresolved items — errors, blockers, pending questions |
 | Brief transcript | Chronological conversation flow — rolling window of ~120 recent lines, tool calls collapsed to one-liners with `(#N)` refs |
 
 **Merge policy:**
-- `Session Goal`, `User Preferences`: concise sticky sections
-- `Outstanding Context`: fresh-only (replaced each compaction)
-- `Files And Changes`, `Commits`: unique union across compactions
-- Brief transcript: rolling window, older lines drop off
+- Stable/current sections stay byte-stable whenever possible.
+- Additive commits, scope, preferences, and evidence route to bounded `Recent *` sections.
+- Explicit preference corrections rewrite stable preferences.
+- `Outstanding Context` is fresh-only (replaced each compaction).
+- Brief transcript is a rolling window; older exact detail remains recoverable via recall/session JSONL.
 
 ## Recall (Lossless History)
 

@@ -40,6 +40,7 @@ Current Scope
 Recent/volatile sections may change more often and should stay bounded:
 
 ```text
+Recent Commits
 Recent Scope Updates
 Recent User Preferences
 Recent Evidence Handles

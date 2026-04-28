@@ -21,6 +21,7 @@ export interface CompactionState {
     recentScopeUpdates: string[];
     filesAndChanges: string[];
     commits: string[];
+    recentCommits: string[];
     evidenceHandles: string[];
     recentEvidenceHandles: string[];
     userPreferences: string[];
@@ -42,6 +43,7 @@ export const CURRENT_SECTION_ORDER = [
   "Evidence Handles",
   "User Preferences",
   "Current Scope",
+  "Recent Commits",
   "Recent Scope Updates",
   "Recent User Preferences",
   "Recent Evidence Handles",
@@ -57,6 +59,7 @@ const stateKeyOf = (section: CurrentSectionName): keyof CompactionState["current
     case "Recent Scope Updates": return "recentScopeUpdates";
     case "Files And Changes": return "filesAndChanges";
     case "Commits": return "commits";
+    case "Recent Commits": return "recentCommits";
     case "Evidence Handles": return "evidenceHandles";
     case "Recent Evidence Handles": return "recentEvidenceHandles";
     case "User Preferences": return "userPreferences";
@@ -66,6 +69,7 @@ const stateKeyOf = (section: CurrentSectionName): keyof CompactionState["current
 };
 
 export const RECENT_SECTION_ITEM_LIMITS: Partial<Record<CurrentSectionName, number>> = {
+  "Recent Commits": 8,
   "Recent Scope Updates": 6,
   "Recent User Preferences": 6,
   "Recent Evidence Handles": 8,
@@ -90,6 +94,7 @@ export const buildCompactionState = (data: SectionData): CompactionState => ({
     recentScopeUpdates: [],
     filesAndChanges: data.filesAndChanges,
     commits: data.commits,
+    recentCommits: [],
     evidenceHandles: data.evidenceHandles,
     recentEvidenceHandles: [],
     userPreferences: data.userPreferences,
@@ -120,6 +125,7 @@ const emptyCurrent = (): CompactionState["current"] => ({
   recentScopeUpdates: [],
   filesAndChanges: [],
   commits: [],
+  recentCommits: [],
   evidenceHandles: [],
   recentEvidenceHandles: [],
   userPreferences: [],

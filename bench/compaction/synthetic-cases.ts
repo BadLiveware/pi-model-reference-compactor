@@ -82,6 +82,11 @@ const noisyLog = (needle: string): string => [
   ...Array.from({ length: 80 }, (_, i) => `debug ${String(i + 80).padStart(2, "0")}: retry window unchanged`),
 ].join("\n");
 
+const longEvidencePayload = (needle: string): string => [
+  ...Array.from({ length: 24 }, (_, i) => `/tmp/pi-vcc-cache-evidence/${needle}/very/deep/path/with/verbose/component/name/cache-proof-artifact-${String(i + 1).padStart(2, "0")}.json`),
+  `CACHE_LONG_EVIDENCE request_id=${needle}`,
+].join("\n");
+
 export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
   {
     id: "boundary-loss-auth-refresh",
@@ -383,6 +388,75 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
       ],
       continuationTerms: [
         { label: "latest scope", term: "tail_scope_08" },
+      ],
+    },
+  },
+  {
+    id: "cache-bust-commit-growth",
+    description: "New git commits should not rewrite the stable commit section across repeated compactions.",
+    messages: [
+      user("Maintain cache-aware compaction. Stable objective: keep commit evidence visible without busting the stable prompt prefix."),
+      assistant("Stable checkpoint: objective keep commit evidence visible; canonical file src/extract/commits.ts."),
+      toolCall("bash", { command: "git commit -m \"test: add cache churn probe\"" }),
+      toolResult("bash", "[feat/cache a1b2c3d] test: add cache churn probe\n 2 files changed"),
+      assistant("Commit a1b2c3d recorded for the cache churn probe."),
+      toolCall("bash", { command: "git commit -m \"fix: keep commit section stable\"" }),
+      toolResult("bash", "[feat/cache b2c3d4e] fix: keep commit section stable\n 3 files changed"),
+      assistant("Commit b2c3d4e recorded while preserving the stable objective."),
+      toolCall("bash", { command: "git commit -m \"docs: explain commit cache boundary\"" }),
+      toolResult("bash", "[feat/cache c3d4e5f] docs: explain commit cache boundary\n 1 file changed"),
+      assistant("Commit c3d4e5f recorded; next compare commit cache boundary metrics."),
+    ],
+    compactionPoints: [5, 8, 11],
+    gold: {
+      activeTerms: [
+        { label: "stable objective", term: "keep commit evidence visible" },
+        { label: "canonical file", term: "src/extract/commits.ts" },
+        { label: "latest commit", term: "c3d4e5f" },
+      ],
+      currentTerms: [
+        { label: "stable objective", term: "keep commit evidence visible" },
+        { label: "canonical file", term: "src/extract/commits.ts" },
+        { label: "latest commit", term: "c3d4e5f" },
+      ],
+      recallTerms: [
+        { label: "middle commit", term: "b2c3d4e", query: "b2c3d4e commit section stable" },
+      ],
+      continuationTerms: [
+        { label: "next proof", term: "compare commit cache boundary metrics" },
+      ],
+    },
+  },
+  {
+    id: "cache-bust-long-evidence-line",
+    description: "A single fresh evidence line with many long paths should be clipped, not allowed to bloat the recent evidence layer.",
+    messages: [
+      user("Audit evidence formatting. Stable objective: keep evidence useful while bounding recent evidence line length."),
+      assistant("Stable checkpoint: evidence must stay useful and bounded; canonical file src/extract/evidence.ts."),
+      toolCall("bash", { command: "grep req_long_ev_anchor /tmp/pi-vcc-cache-evidence/anchor.log" }),
+      toolResult("bash", "CACHE_LONG_EVIDENCE request_id=req_long_ev_anchor /tmp/pi-vcc-cache-evidence/anchor.log"),
+      assistant("Initial evidence handle req_long_ev_anchor is recorded."),
+      toolCall("bash", { command: "find /tmp/pi-vcc-cache-evidence/req_long_ev_latest -type f" }),
+      toolResult("bash", longEvidencePayload("req_long_ev_latest")),
+      assistant("Latest evidence handle req_long_ev_latest is recorded; keep the long path list bounded."),
+    ],
+    compactionPoints: [5, 8],
+    gold: {
+      activeTerms: [
+        { label: "stable objective", term: "bounding recent evidence line length" },
+        { label: "canonical file", term: "src/extract/evidence.ts" },
+        { label: "latest evidence", term: "req_long_ev_latest" },
+      ],
+      currentTerms: [
+        { label: "stable objective", term: "bounding recent evidence line length" },
+        { label: "canonical file", term: "src/extract/evidence.ts" },
+        { label: "latest evidence", term: "req_long_ev_latest" },
+      ],
+      recallTerms: [
+        { label: "long path payload", term: "cache-proof-artifact-24.json", query: "cache-proof-artifact-24" },
+      ],
+      continuationTerms: [
+        { label: "bounded path list", term: "long path list bounded" },
       ],
     },
   },

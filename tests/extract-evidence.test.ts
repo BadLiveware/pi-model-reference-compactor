@@ -31,4 +31,19 @@ describe("extractEvidence", () => {
     ];
     expect(formatEvidence(extractEvidence(blocks)).join("\n")).toContain("req_cache_beta");
   });
+
+  it("clips long evidence lines with a stable overflow suffix", () => {
+    const blocks: NormalizedBlock[] = [
+      {
+        kind: "tool_result",
+        name: "bash",
+        text: Array.from({ length: 24 }, (_, i) => `/tmp/pi-vcc-cache-evidence/very/deep/path/cache-proof-artifact-${i}.json`).join("\n"),
+        isError: false,
+      },
+    ];
+    const pathsLine = formatEvidence(extractEvidence(blocks)).find((line) => line.startsWith("Paths:"));
+    expect(pathsLine).toBeDefined();
+    expect(pathsLine!.length).toBeLessThanOrEqual(235);
+    expect(pathsLine).toContain("(+more)");
+  });
 });

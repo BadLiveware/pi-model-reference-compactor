@@ -57,12 +57,13 @@ describe("compaction state", () => {
     expect(rendered.layers).toEqual([]);
   });
 
-  it("renders recent preference and evidence sections after current scope", () => {
+  it("renders recent commit, preference, and evidence sections after current scope", () => {
     const state = buildCompactionState(sectionData({
       sessionGoal: ["Benchmark compaction"],
       evidenceHandles: ["Paths: src/cache/probe.ts"],
       currentScope: ["Keep going"],
     }));
+    state.current.recentCommits = ["b2c3d4e: fix: keep commit section stable"];
     state.current.recentScopeUpdates = ["Validate dashboards"];
     state.current.recentUserPreferences = ["Prefer query read only mode"];
     state.current.recentEvidenceHandles = ["Identifiers: req_cache_beta"];
@@ -71,6 +72,7 @@ describe("compaction state", () => {
       "Pi VCC Session Goal",
       "Pi VCC Evidence Handles",
       "Pi VCC Current Scope",
+      "Pi VCC Recent Commits",
       "Pi VCC Recent Scope Updates",
       "Pi VCC Recent User Preferences",
       "Pi VCC Recent Evidence Handles",
@@ -79,11 +81,14 @@ describe("compaction state", () => {
 
   it("caps recent mutable sections to the latest items", () => {
     const state = buildCompactionState(sectionData({ sessionGoal: ["Benchmark compaction"] }));
+    state.current.recentCommits = Array.from({ length: 10 }, (_, i) => `commit-${i + 1}`);
     state.current.recentScopeUpdates = Array.from({ length: 8 }, (_, i) => `scope-${i + 1}`);
     state.current.recentUserPreferences = Array.from({ length: 8 }, (_, i) => `pref-${i + 1}`);
     state.current.recentEvidenceHandles = Array.from({ length: 10 }, (_, i) => `evidence-${i + 1}`);
     const rendered = renderCompactionState(state);
     const lines = rendered.text.split("\n");
+    expect(lines).not.toContain("- commit-1");
+    expect(lines).toContain("- commit-10");
     expect(lines).not.toContain("- scope-1");
     expect(lines).toContain("- scope-8");
     expect(lines).not.toContain("- pref-1");

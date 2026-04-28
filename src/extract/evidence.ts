@@ -76,10 +76,31 @@ export const extractEvidence = (blocks: NormalizedBlock[]): EvidenceActivity => 
   return activity;
 };
 
+const MAX_EVIDENCE_VALUE_CHARS = 96;
+const MAX_EVIDENCE_LINE_CHARS = 220;
+
+const clipEvidenceValue = (value: string): string =>
+  value.length <= MAX_EVIDENCE_VALUE_CHARS
+    ? value
+    : `${value.slice(0, MAX_EVIDENCE_VALUE_CHARS - 3)}...`;
+
 const cap = (set: Set<string>, limit: number): string => {
-  const values = [...set];
-  if (values.length <= limit) return values.join(", ");
-  return `${values.slice(0, limit).join(", ")} (+more)`;
+  const values = [...set].map(clipEvidenceValue);
+  const rendered: string[] = [];
+  let omitted = values.length > limit;
+  for (const value of values.slice(0, limit)) {
+    const candidate = [...rendered, value].join(", ");
+    if (candidate.length > MAX_EVIDENCE_LINE_CHARS && rendered.length > 0) {
+      omitted = true;
+      break;
+    }
+    rendered.push(value);
+  }
+  if (rendered.length === 0 && values[0]) {
+    rendered.push(values[0].slice(0, MAX_EVIDENCE_LINE_CHARS - 10));
+    omitted = true;
+  }
+  return `${rendered.join(", ")}${omitted ? " (+more)" : ""}`;
 };
 
 export const formatEvidence = (activity: EvidenceActivity): string[] => {

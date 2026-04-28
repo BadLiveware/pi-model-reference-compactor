@@ -197,4 +197,19 @@ describe("compile", () => {
     expect(current).toContain("req_cache_beta");
     expect(current.indexOf("[Evidence Handles]")).toBeLessThan(current.indexOf("[Recent Evidence Handles]"));
   });
+
+  it("places newly discovered commits in a later recent section", () => {
+    const previousSummary = "[Session Goal]\n- Existing goal\n\n[Commits]\n- a1b2c3d: test: add cache churn probe\n\n---\n\n[user]\nExisting goal";
+    const r = compile({
+      previousSummary,
+      messages: [
+        assistantWithToolCall("bash", { command: "git commit -m \"fix: keep commit section stable\"" }),
+        toolResult("bash", "[feat/cache b2c3d4e] fix: keep commit section stable"),
+      ],
+    });
+    const current = r.split("\n\n---\n\n")[0];
+    expect(current).toContain("[Commits]\n- a1b2c3d: test: add cache churn probe");
+    expect(current).toContain("[Recent Commits]\n- b2c3d4e: fix: keep commit section stable");
+    expect(current.indexOf("[Commits]")).toBeLessThan(current.indexOf("[Recent Commits]"));
+  });
 });

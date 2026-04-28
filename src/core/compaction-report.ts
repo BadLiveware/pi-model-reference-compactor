@@ -83,6 +83,7 @@ const STABLE_CURRENT_SECTIONS = new Set<string>([
 ]);
 
 const RECENT_VOLATILE_SECTIONS = new Set<string>([
+  "Recent Commits",
   "Recent Scope Updates",
   "Recent User Preferences",
   "Recent Evidence Handles",
@@ -100,6 +101,7 @@ const stateItemsOf = (state: CompactionState, title: CurrentSectionName): string
     case "Session Goal": return state.current.sessionGoal;
     case "Files And Changes": return state.current.filesAndChanges;
     case "Commits": return state.current.commits;
+    case "Recent Commits": return state.current.recentCommits;
     case "Evidence Handles": return state.current.evidenceHandles;
     case "User Preferences": return state.current.userPreferences;
     case "Current Scope": return state.current.currentScope;
