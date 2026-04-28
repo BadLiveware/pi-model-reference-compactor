@@ -90,11 +90,26 @@ describe("compaction state", () => {
     expect(lines).not.toContain("- commit-1");
     expect(lines).toContain("- commit-10");
     expect(lines).not.toContain("- scope-1");
+    expect(lines).not.toContain("- scope-4");
     expect(lines).toContain("- scope-8");
     expect(lines).not.toContain("- pref-1");
+    expect(lines).not.toContain("- pref-4");
     expect(lines).toContain("- pref-8");
     expect(lines).not.toContain("- evidence-1");
     expect(lines).toContain("- evidence-10");
+  });
+
+  it("clips verbose recent scope and preference items with stable overflow markers", () => {
+    const state = buildCompactionState(sectionData({ sessionGoal: ["Benchmark compaction"] }));
+    state.current.recentScopeUpdates = ["scope_long_alpha ".repeat(12).trim()];
+    state.current.recentUserPreferences = ["pref_long_alpha ".repeat(12).trim()];
+    const rendered = renderCompactionState(state);
+    const scopeLine = rendered.text.split("\n").find((line) => line.startsWith("- scope_long_alpha"));
+    const prefLine = rendered.text.split("\n").find((line) => line.startsWith("- pref_long_alpha"));
+    expect(scopeLine).toContain("(+more)");
+    expect(prefLine).toContain("(+more)");
+    expect(scopeLine!.length).toBeLessThanOrEqual(88);
+    expect(prefLine!.length).toBeLessThanOrEqual(76);
   });
 
   it("parses rendered summary back into structured state", () => {

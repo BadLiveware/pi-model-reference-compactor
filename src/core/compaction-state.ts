@@ -70,9 +70,15 @@ const stateKeyOf = (section: CurrentSectionName): keyof CompactionState["current
 
 export const RECENT_SECTION_ITEM_LIMITS: Partial<Record<CurrentSectionName, number>> = {
   "Recent Commits": 8,
-  "Recent Scope Updates": 6,
-  "Recent User Preferences": 6,
+  "Recent Scope Updates": 4,
+  "Recent User Preferences": 4,
   "Recent Evidence Handles": 8,
+};
+
+export const RECENT_SECTION_ITEM_CHAR_LIMITS: Partial<Record<CurrentSectionName, number>> = {
+  "Recent Scope Updates": 86,
+  "Recent User Preferences": 74,
+  "Recent Evidence Handles": 220,
 };
 
 const cappedItems = (title: CurrentSectionName, items: string[]): string[] => {
@@ -80,10 +86,25 @@ const cappedItems = (title: CurrentSectionName, items: string[]): string[] => {
   return limit && items.length > limit ? items.slice(-limit) : items;
 };
 
+const clippedItem = (title: CurrentSectionName, item: string): string => {
+  const limit = RECENT_SECTION_ITEM_CHAR_LIMITS[title];
+  if (!limit || item.length <= limit) return item;
+  const marker = " ... ";
+  const suffix = " (+more)";
+  const budget = limit - marker.length - suffix.length;
+  if (budget <= 12) return `${item.slice(0, Math.max(0, limit - suffix.length)).trimEnd()}${suffix}`;
+  const tailChars = Math.min(18, Math.floor(budget / 4));
+  const headChars = budget - tailChars;
+  return `${item.slice(0, headChars).trimEnd()}${marker}${item.slice(-tailChars).trimStart()}${suffix}`;
+};
+
+const boundedItems = (title: CurrentSectionName, items: string[]): string[] =>
+  cappedItems(title, items).map((item) => clippedItem(title, item));
+
 const section = (title: CurrentSectionName, items: string[]): string => {
-  const capped = cappedItems(title, items);
-  if (capped.length === 0) return "";
-  const body = capped.map((item) => `- ${item}`).join("\n");
+  const bounded = boundedItems(title, items);
+  if (bounded.length === 0) return "";
+  const body = bounded.map((item) => `- ${item}`).join("\n");
   return `[${title}]\n${body}`;
 };
 

@@ -155,6 +155,8 @@ The current cache-boundary probes are:
 - `cache-bust-mutable-tail-growth`: first change should be in a recent/volatile layer and recent layer sizes must stay under their caps.
 - `cache-bust-commit-growth`: new commits should first change `Pi VCC Recent Commits`, not the stable `Pi VCC Commits` section.
 - `cache-bust-long-evidence-line`: long fresh evidence should first change `Pi VCC Recent Evidence Handles` while keeping that layer under its size cap.
+- `cache-bust-long-scope-line`: verbose fresh scope should first change `Pi VCC Recent Scope Updates` while keeping that layer under its size cap.
+- `cache-bust-long-preference-line`: verbose fresh preferences should first change `Pi VCC Recent User Preferences` while keeping that layer under its size cap.
 
 Append sampled real Pi sessions from a local session directory. Real-session cases have no gold state assertions; they are useful for size, latency, growth, and cache-churn signals:
 

@@ -87,6 +87,12 @@ const longEvidencePayload = (needle: string): string => [
   `CACHE_LONG_EVIDENCE request_id=${needle}`,
 ].join("\n");
 
+const longScope = (tag: string): string =>
+  `Also add detailed scope requirement ${tag} covering dashboard drift checks, benchmark explain output, report artifact review, rollback notes, and validation evidence before broader replay.`;
+
+const longPreference = (tag: string): string =>
+  `I prefer ${tag} notes to include dashboard drift checks, benchmark explain output, report artifact paths, rollback notes, and validation evidence before broader replay.`;
+
 export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
   {
     id: "boundary-loss-auth-refresh",
@@ -457,6 +463,70 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
       ],
       continuationTerms: [
         { label: "bounded path list", term: "long path list bounded" },
+      ],
+    },
+  },
+  {
+    id: "cache-bust-long-scope-line",
+    description: "Verbose fresh scope updates should stay bounded in the recent scope layer.",
+    messages: [
+      user("Maintain cache-aware compaction. Stable objective: keep verbose scope updates useful but bounded."),
+      assistant("Stable checkpoint: objective keep verbose scope useful but bounded; canonical file src/extract/goals.ts."),
+      user("Also add compact scope baseline to the current scope."),
+      assistant("Baseline current scope is established."),
+      user([longScope("scope_long_alpha"), longScope("scope_long_beta"), longScope("scope_long_gamma")].join("\n")),
+      assistant("Recorded verbose scope updates; next verify the recent scope layer remains bounded."),
+    ],
+    compactionPoints: [4, 6],
+    gold: {
+      activeTerms: [
+        { label: "stable objective", term: "verbose scope updates useful but bounded" },
+        { label: "canonical file", term: "src/extract/goals.ts" },
+        { label: "latest scope", term: "scope_long_beta" },
+      ],
+      currentTerms: [
+        { label: "stable objective", term: "verbose scope updates useful but bounded" },
+        { label: "canonical file", term: "src/extract/goals.ts" },
+        { label: "latest scope", term: "scope_long_beta" },
+      ],
+      recallTerms: [
+        { label: "third verbose scope", term: "scope_long_gamma", query: "scope_long_gamma" },
+      ],
+      continuationTerms: [
+        { label: "bounded recent scope", term: "recent scope layer remains bounded" },
+      ],
+    },
+  },
+  {
+    id: "cache-bust-long-preference-line",
+    description: "Verbose fresh preferences should stay bounded in the recent preferences layer.",
+    messages: [
+      user("Maintain cache-aware compaction. Stable objective: keep verbose preferences useful but bounded.\nAlways use Docker for broad validation."),
+      assistant("Stable checkpoint: objective keep verbose preferences useful but bounded; canonical file src/extract/preferences.ts."),
+      user(longPreference("pref_long_alpha")),
+      assistant("Recorded pref_long_alpha."),
+      user(longPreference("pref_long_beta")),
+      assistant("Recorded pref_long_beta."),
+      user(longPreference("pref_long_gamma")),
+      assistant("Recorded pref_long_gamma; next verify the recent preference layer remains bounded."),
+    ],
+    compactionPoints: [2, 8],
+    gold: {
+      activeTerms: [
+        { label: "stable objective", term: "verbose preferences useful but bounded" },
+        { label: "canonical file", term: "src/extract/preferences.ts" },
+        { label: "latest preference", term: "pref_long_gamma" },
+      ],
+      currentTerms: [
+        { label: "stable objective", term: "verbose preferences useful but bounded" },
+        { label: "canonical file", term: "src/extract/preferences.ts" },
+        { label: "latest preference", term: "pref_long_gamma" },
+      ],
+      recallTerms: [
+        { label: "first verbose preference", term: "pref_long_alpha", query: "pref_long_alpha" },
+      ],
+      continuationTerms: [
+        { label: "bounded recent preference", term: "recent preference layer remains bounded" },
       ],
     },
   },
