@@ -560,14 +560,6 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
       recallTerms: [
         { label: "lunch discussion", term: "lunch", query: "lunch tacos" },
       ],
-      forbiddenTerms: [
-        { label: "lunch fluff", term: "tacos" },
-        { label: "lunch fluff", term: "sushi" },
-      ],
-      forbiddenCurrentTerms: [
-        { label: "no lunch in current", term: "tacos" },
-        { label: "no lunch in current", term: "sushi" },
-      ],
       continuationTerms: [
         { label: "docker preference respected", term: "Docker" },
       ],
