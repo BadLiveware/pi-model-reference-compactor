@@ -48,15 +48,16 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
 
       // --raw-context: dump the real context buffer as a formatted document
       if (isRawContext) {
-        const bufPath = "/tmp/pi-vcc-context-buffer.json";
-        if (!existsSync(bufPath)) {
-          ctx.ui.notify("No context buffer found. Prompt the agent at least once first.", "warning");
-          return;
-        }
-        const buf = JSON.parse(readFileSync(bufPath, "utf-8"));
-        const slots = buf?.slots;
-        if (!Array.isArray(slots) || slots.length === 0) {
-          ctx.ui.notify("Context buffer is empty.", "warning");
+        // Look up buffer for this session
+        const { readContextBuffer, listBufferedSessions } = await import("../core/context-buffer");
+        const slots = readContextBuffer(sessionFile);
+        if (slots.length === 0) {
+          const sessions = listBufferedSessions();
+          if (sessions.length === 0) {
+            ctx.ui.notify("No context buffer found. Prompt the agent at least once first.", "warning");
+            return;
+          }
+          ctx.ui.notify(`No buffer for this session. Available: ${sessions.map((s: any) => s.file).join(", ")}`, "warning");
           return;
         }
         const latest = slots[slots.length - 1];
@@ -104,7 +105,7 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
       }
 
       // Try real context buffer first, fall back to session extraction
-      let extracted = extractContextFromBuffer();
+      let extracted = extractContextFromBuffer(sessionFile);
       let sourceLabel = "real context buffer";
       if (!extracted) {
         extracted = extractContext(sessionFile);

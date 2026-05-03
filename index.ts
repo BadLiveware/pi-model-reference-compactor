@@ -13,8 +13,10 @@ export default (pi: ExtensionAPI) => {
   scaffoldSettings();
 
   // Always buffer real context for dump/mrc use
-  pi.on("context", (event) => {
-    pushContextSlot({
+  pi.on("context", (event, ctx) => {
+    const sessionFile = ctx.sessionManager.getSessionFile();
+    if (!sessionFile) return;
+    pushContextSlot(sessionFile, {
       timestamp: new Date().toISOString(),
       messages: event.messages as unknown[],
     });

@@ -150,14 +150,20 @@ const DECISION_RE = /\b(decision|decided|chose|chosen|agreed|resolved|concluded|
  * Prefer this over algorithmic session extraction — actual assembled messages,
  * no regex guesswork, no kubectl noise.
  */
-export const extractContextFromBuffer = (bufferPath?: string): ExtractedContext | undefined => {
+export const extractContextFromBuffer = (sessionFile?: string): ExtractedContext | undefined => {
   try {
-    const path = bufferPath ?? "/tmp/pi-vcc-context-buffer.json";
-    if (!existsSync(path)) return undefined;
-    const raw = readFileSync(path, "utf-8");
-    const data = JSON.parse(raw);
-    const slots = data?.slots;
-    if (!Array.isArray(slots) || slots.length === 0) return undefined;
+    // If no session file given, try listing buffers and picking most recent
+    let targetSessionFile = sessionFile;
+    if (!targetSessionFile) {
+      const { listBufferedSessions } = require("./context-buffer");
+      const sessions = listBufferedSessions();
+      if (sessions.length === 0) return undefined;
+      targetSessionFile = sessions[0].sessionFile;
+    }
+
+    const { readContextBuffer } = require("./context-buffer");
+    const slots = readContextBuffer(targetSessionFile);
+    if (slots.length === 0) return undefined;
     const messages = slots[slots.length - 1]?.messages;
     if (!Array.isArray(messages)) return undefined;
     return extractContextFromMessages(messages);
