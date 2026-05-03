@@ -3,6 +3,7 @@ import { convertToLlm } from "@mariozechner/pi-coding-agent";
 import { writeFileSync } from "fs";
 import { compileWithReport } from "../core/summarize";
 import { loadSettings, type PiVccSettings } from "../core/settings";
+import { compactWithModelReference } from "../strategies/model-reference";
 import {
   formatCompactionReportMessageContent,
   PI_VCC_COMPACTION_REPORT_TYPE,
@@ -147,7 +148,7 @@ const REASON_MESSAGES: Record<OwnCutCancelReason, string> = {
 };
 
 export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
-  pi.on("session_before_compact", (event, ctx) => {
+  pi.on("session_before_compact", async (event, ctx) => {
     const { preparation, branchEntries, customInstructions } = event;
     const settings = loadSettings();
 
@@ -252,6 +253,33 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     };
 
     const config = settings;
+
+    // Use model-reference strategy if configured
+    if (config.strategy === "model-reference") {
+      const mrcResult = await compactWithModelReference(messages, config);
+      const summary = mrcResult.summary;
+      dbg(config, {
+        strategy: "model-reference",
+        messagesToSummarize: agentMessages.length,
+        firstKeptEntryId,
+        tokensBefore: preparation.tokensBefore,
+        summaryLength: summary.length,
+        summaryPreview: summary.slice(0, 500),
+        classifierMs: mrcResult.stats.classifierMs,
+      });
+
+      return {
+        compaction: {
+          summary,
+          firstKeptEntryId,
+          tokensBefore: preparation.tokensBefore,
+          details: {
+            readFiles: [...preparation.fileOps.read],
+            modifiedFiles: [...preparation.fileOps.written, ...preparation.fileOps.edited],
+          },
+        },
+      };
+    }
 
     const compiled = compileWithReport({
       messages,

@@ -9,6 +9,12 @@ export const SETTINGS_PATH = settingsPath();
 
 export interface PiVccSettings {
   /**
+   * Compaction strategy to use.
+   * - "pi-vcc": Algorithmic extraction with structured sections (default).
+   * - "model-reference": LLM classifier with KEEP/REF/DROP tiers.
+   */
+  strategy: "pi-vcc" | "model-reference";
+  /**
    * When true, pi-vcc handles ALL compactions:
    *   - /compact (no args)
    *   - /compact <text>
@@ -24,6 +30,7 @@ export interface PiVccSettings {
 }
 
 export const DEFAULT_SETTINGS: PiVccSettings = {
+  strategy: "pi-vcc",
   overrideDefaultCompaction: false,
   debug: false,
 };
