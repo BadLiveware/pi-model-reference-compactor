@@ -4,6 +4,7 @@ import { writeFileSync } from "fs";
 import { compileWithReport } from "../core/summarize";
 import { loadSettings, type PiVccSettings } from "../core/settings";
 import { compactWithModelReference } from "../strategies/model-reference";
+import { getSessionStrategy } from "../commands/pi-vcc-strategy";
 import {
   formatCompactionReportMessageContent,
   PI_VCC_COMPACTION_REPORT_TYPE,
@@ -254,8 +255,12 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
 
     const config = settings;
 
-    // Use model-reference strategy if configured
-    if (config.strategy === "model-reference") {
+    // Use model-reference strategy if configured globally OR per-session
+    const effectiveStrategy = getSessionStrategy() === "model-reference"
+      ? "model-reference"
+      : config.strategy;
+
+    if (effectiveStrategy === "model-reference") {
       const mrcResult = await compactWithModelReference(messages, config);
       const summary = mrcResult.summary;
       dbg(config, {

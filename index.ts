@@ -5,6 +5,7 @@ import { registerPiVccCommand } from "./src/commands/pi-vcc";
 import { registerVccRecallCommand } from "./src/commands/vcc-recall";
 import { registerPiVccReportCommand } from "./src/commands/pi-vcc-report";
 import { registerDumpContextCommand } from "./src/commands/pi-vcc-dump-context";
+import { registerPiVccMrCommand } from "./src/commands/pi-vcc-strategy";
 import { registerRecallTool } from "./src/tools/recall";
 import { registerCompactionReportCard } from "./src/ui/compaction-report-card";
 import { pushContextSlot } from "./src/core/context-buffer";
@@ -27,6 +28,7 @@ export default (pi: ExtensionAPI) => {
   registerPiVccCommand(pi);
   registerPiVccReportCommand(pi);
   registerDumpContextCommand(pi);
+  registerPiVccMrCommand(pi);
   registerVccRecallCommand(pi);
   registerRecallTool(pi);
 };
