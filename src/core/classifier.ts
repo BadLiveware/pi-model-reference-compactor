@@ -228,16 +228,28 @@ const parseClassification = (
 /**
  * Post-process classification: auto-promote tiny REF entries to KEEP
  * when the content is shorter than the recall overhead.
+ * Different thresholds by kind: goals/decisions get a higher bar (they're more
+ * valuable to inline) than conversational transcript lines.
  */
 export const inlineSmallRefs = (
   classification: ChunkClassification,
   chunks: CompactionChunk[],
-  maxChars = 120,
 ): ChunkClassification => {
+  const threshold = (kind: string): number => {
+    switch (kind) {
+      case "goal": return 200;
+      case "preference": return 160;
+      case "evidence": return 140;
+      case "file": return 120; // file paths are usually short, always inline
+      case "transcript-line": return 100;
+      default: return 120;
+    }
+  };
+
   const promotedIds: string[] = [];
   const keptRefs = classification.refs.filter((ref) => {
     const chunk = chunks.find((c) => c.id === ref.id);
-    if (chunk && chunk.text.length <= maxChars) {
+    if (chunk && chunk.text.length <= threshold(chunk.kind)) {
       promotedIds.push(ref.id);
       return false;
     }
