@@ -5,7 +5,6 @@ import { compileWithReport } from "../core/summarize";
 import { loadSettings, type PiVccSettings } from "../core/settings";
 import { compactWithModelReference } from "../strategies/model-reference";
 import { getSessionStrategy } from "../commands/pi-vcc-strategy";
-import { buildCompactionReport, PI_VCC_COMPACTION_REPORT_TYPE } from "../core/compaction-report";
 import {
   formatCompactionReportMessageContent,
   PI_VCC_COMPACTION_REPORT_TYPE,
