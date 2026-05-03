@@ -6,7 +6,7 @@
  * No compaction is triggered — this is purely a read-side extraction.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { dirname, basename } from "path";
 
 export interface ContextDumpEntry {
@@ -142,9 +142,107 @@ const extractUserMessageText = (entry: ContextDumpEntry): string | undefined => 
   }
   return undefined;
 };
-
 const CONTEXT_RE = /\b(prefer|always|never|don'?t want|must|should not|avoid|keep)\b/i;
 const DECISION_RE = /\b(decision|decided|chose|chosen|agreed|resolved|concluded|bootstrap|deploy|chart|helm|namespace)\b/i;
+
+/**
+ * Extract structured context from the real context buffer (Pi's context event capture).
+ * Prefer this over algorithmic session extraction — actual assembled messages,
+ * no regex guesswork, no kubectl noise.
+ */
+export const extractContextFromBuffer = (bufferPath?: string): ExtractedContext | undefined => {
+  try {
+    const path = bufferPath ?? "/tmp/pi-vcc-context-buffer.json";
+    if (!existsSync(path)) return undefined;
+    const raw = readFileSync(path, "utf-8");
+    const data = JSON.parse(raw);
+    const slots = data?.slots;
+    if (!Array.isArray(slots) || slots.length === 0) return undefined;
+    const messages = slots[slots.length - 1]?.messages;
+    if (!Array.isArray(messages)) return undefined;
+    return extractContextFromMessages(messages);
+  } catch {
+    return undefined;
+  }
+};
+
+/** Extract from raw AgentMessage[] captured by the context event. */
+export const extractContextFromMessages = (messages: unknown[]): ExtractedContext => {
+  const stats: SessionStats = {
+    totalEntries: messages.length, messageEntries: messages.length, compactionEntries: 0,
+    userMessages: 0, assistantMessages: 0,
+    sessionsFile: "context-buffer", sessionId: "buffer", cwd: "", timestamp: "",
+  };
+  const goal: string[] = [];
+  const decisions: string[] = [];
+  const preferences: string[] = [];
+  const recentUserMessages: string[] = [];
+  const compactionSummaries: string[] = [];
+  const keyConfig: string[] = [];
+  const seenDecisions = new Set<string>();
+  const seenPrefs = new Set<string>();
+
+  for (const msg of messages) {
+    const m = msg as Record<string, unknown>;
+    const role = (m.role as string) || "";
+
+    // Compaction summary
+    if (role === "compactionSummary" || role === "compaction_summary") {
+      stats.compactionEntries++;
+      const summary = (m.summary as string) || "";
+      if (summary) {
+        compactionSummaries.push(summary);
+        for (const g of extractGoalFromSummary(summary)) { if (!goal.includes(g)) goal.push(g); }
+        for (const d of extractDecisionsFromSummary(summary)) {
+          const key = d.toLowerCase();
+          if (!seenDecisions.has(key)) { seenDecisions.add(key); decisions.push(d); }
+        }
+      }
+      continue;
+    }
+
+    let text = "";
+    const content = m.content;
+    if (typeof content === "string") { text = content; }
+    else if (Array.isArray(content)) {
+      text = (content as Array<Record<string, unknown>>)
+        .filter((b) => b.type === "text")
+        .map((b) => (b.text as string) || "")
+        .join(" ");
+    }
+
+    if (role === "user") {
+      stats.userMessages++;
+      recentUserMessages.push(text);
+      for (const line of text.split("\n")) {
+        const t = line.trim();
+        if (t.length < 10 || t.length > 250) continue;
+        if (CONTEXT_RE.test(t)) { const k = t.toLowerCase(); if (!seenPrefs.has(k)) { seenPrefs.add(k); preferences.push(t); } }
+      }
+    } else if (role === "assistant") {
+      stats.assistantMessages++;
+      for (const line of text.split("\n")) {
+        const t = line.trim();
+        if (t.length < 10 || t.length > 300) continue;
+        if (DECISION_RE.test(t)) { const k = t.toLowerCase(); if (!seenDecisions.has(k)) { seenDecisions.add(k); decisions.push(t); } }
+      }
+    }
+
+    // Extract cwd
+    if (!stats.cwd) {
+      const cwdMatch = text.match(/\/home\/fl\/code\/[\w.-]+(?:\/[\w.-]+)*/);
+      if (cwdMatch) stats.cwd = cwdMatch[0];
+    }
+  }
+
+  return {
+    stats, goal: goal.slice(0, 6), decisions: decisions.slice(0, 20), preferences: preferences.slice(0, 15),
+    filesRead: new Set(), filesModified: new Set(),
+    recentUserMessages: recentUserMessages.slice(-MAX_RECENT_USERS),
+    compactionSummaries: compactionSummaries.slice(-MAX_COMPACTION_SUMMARIES),
+    outstandingContext: [], keyConfig: keyConfig.slice(0, 20),
+  };
+};
 
 /**
  * Extract structured context from a session file.

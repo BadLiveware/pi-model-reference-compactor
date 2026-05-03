@@ -17,6 +17,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { statSync } from "fs";
 import {
   extractContext,
+  extractContextFromBuffer,
   formatContextGuide,
   writeContextGuide,
   dumpRawSessionJsonl,
@@ -43,13 +44,19 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
         .replace(/--summary/g, "")
         .trim();
 
-      // --summary: display inline
+      // Try real context buffer first, fall back to session extraction
+      let extracted = extractContextFromBuffer();
+      let sourceLabel = "real context buffer";
+      if (!extracted) {
+        extracted = extractContext(sessionFile);
+        sourceLabel = "session file";
+      }
+      if (!extracted) {
+        ctx.ui.notify("Failed to extract context from buffer or session file.", "error");
+        return;
+      }
+
       if (isSummary) {
-        const extracted = extractContext(sessionFile);
-        if (!extracted) {
-          ctx.ui.notify("Failed to extract context from session file.", "error");
-          return;
-        }
         const guide = formatContextGuide(extracted, sessionFile);
         pi.sendMessage({
           customType: "vcc-context-dump",
@@ -64,30 +71,18 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
         const outPath = pathArg || undefined;
         const written = dumpRawSessionJsonl(sessionFile, outPath);
         const size = statSync(written).size;
-        ctx.ui.notify(
-          `Raw session dumped: ${written} (${(size / 1024).toFixed(0)} KB)`,
-          "info",
-        );
+        ctx.ui.notify(`Raw session dumped: ${written} (${(size / 1024).toFixed(0)} KB)`, "info");
         return;
       }
 
       // Default: write context guide Markdown
-      const extracted = extractContext(sessionFile);
-      if (!extracted) {
-        ctx.ui.notify("Failed to extract context from session file.", "error");
-        return;
-      }
-
       const outPath = pathArg || undefined;
       const written = writeContextGuide(extracted, sessionFile, outPath);
       const size = statSync(written).size;
-      ctx.ui.notify(
-        `Context guide written: ${written} (${(size / 1024).toFixed(1)} KB)`,
-        "info",
-      );
+      ctx.ui.notify(`Context guide written (${sourceLabel}): ${written} (${(size / 1024).toFixed(1)} KB)`, "info");
 
       const summary = [
-        `Context guide for ${extracted.stats.sessionId}`,
+        `Context guide for ${extracted.stats.sessionId} (${sourceLabel})`,
         `  Goals: ${extracted.goal.length}`,
         `  Decisions: ${extracted.decisions.length}`,
         `  Preferences: ${extracted.preferences.length}`,
