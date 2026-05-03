@@ -90,6 +90,16 @@ export interface ChunkClassification {
   refs: Array<{ id: string; summary: string }>;
   dropIds: string[];
   mvs: string;
+  /** Parked goal bundles for later revival */
+  bundles?: GoalBundle[];
+}
+
+/** A parked goal context bundle */
+export interface GoalBundle {
+  id: string;
+  label: string;
+  recallCondition: string;
+  chunkIds: string[];
 }
 
 /** A single REF index entry stored in Tier 2 */

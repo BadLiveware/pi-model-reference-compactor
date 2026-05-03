@@ -26,25 +26,37 @@ export interface ClassifierConfig {
   timeoutMs?: number;
 }
 
-const CLASSIFIER_SYSTEM_PROMPT = `You are a context compaction classifier. Your job is to classify conversation chunks into three tiers so a future LLM can continue the work efficiently.
+const CLASSIFIER_SYSTEM_PROMPT = `You are a context compaction classifier. Your job is to classify conversation chunks into tiers so a future LLM can continue the work efficiently.
 
 DO NOT rewrite or summarize the chunk content. You only:
 1. Decide which chunks to KEEP, REF, or DROP
-2. Write a one-line summary for each REF chunk
-3. Write a short Minimum Viable Summary (MVS) paragraph
+2. Write actionable REF summaries with recall conditions
+3. Group parked old-goal chunks into BUNDLE entries
+4. Write a short Minimum Viable Summary (MVS) paragraph
 
 Classification rules:
-- KEEP: Critical for continuing the work. File paths, commit hashes, error signatures, key decisions, active goals, constraints, identifiers needed for tool calls.
-- REF: Useful context but not critical. One-line summary so it can be retrieved later if needed. Example: "discussed auth token refresh pattern"
-- DROP: Conversational fluff, status updates, repeated content, lunch discussions, greetings.
+- KEEP: Critical for continuing the CURRENT work. Limit to 15-20 most important chunks. Prioritize: the user's most recent explicit decisions, active files, current goal, key constraints. A user saying "Alright, lets do it" about a topic IS the current goal — weigh it above older summaries.
+- REF: Useful context to index for later retrieval. Write "Recall if <trigger condition>" so the agent knows WHEN to pull this. Example: "Recall if user asks about MV/RMV tradeoffs" or "Recall if returning to workload-virtual-rule-optimizations".
+- DROP: Conversational fluff, status updates, repeated content, lunch discussions, greetings, stale metadata.
+
+BUNDLE format (for parked old goals):
+- When chunks belong to a previous goal that is no longer active, group them into a named bundle.
+- Format: BUNDLE: <id> | <label> | <trigger-condition> | <chunk-ids>
+- Example: BUNDLE: broad-sweep | PR #14 range query work | user asks about range query performance | F5,F6,F7,C3
+- Note: the trigger-condition should NOT include "Recall if" — just the raw condition text.
+
+Acronym expansion:
+- In MVS and REF summaries, expand domain acronyms on first occurrence: RMV → "RMV (Refreshing Materialized View)", MV → "MV (Materialized View)", PR → just "PR".
+- Do NOT rewrite chunk text — only expand in the summaries YOU write.
 
 Output format (strict):
 ---
 KEEP: id1, id2, id3
-REF: id4 | discussed auth token refresh
-REF: id5 | looked at benchmark results
+REF: id4 | Recall if user asks about auth token refresh
+REF: id5 | Recall if returning to benchmark framework design
+BUNDLE: join-enrichment | Phase 3 join shapes | Recall if returning to workload-virtual-rule-optimizations | G2,D13,D14,F7,F8
 DROP: id6, id7, id8
-MVS: Working on PR #14 for feat/broad-sweep. Added native range auto-chunking instrumentation. Next: clean PR artifacts before merge.
+MVS: Working on recording rule MV optimization. User decided to proceed with MV approach after discussing tradeoffs vs live queries. Part of broader PR #14.
 ---
 
 Only output the classification block. No other text.`;
@@ -72,6 +84,7 @@ const parseClassification = (
   const keepIds: string[] = [];
   const refs: Array<{ id: string; summary: string }> = [];
   const dropIds: string[] = [];
+  const bundles: Array<{ id: string; label: string; recallCondition: string; chunkIds: string[] }> = [];
   let mvs = "Continuing work from conversation.";
 
   for (const line of output.split("\n")) {
@@ -95,6 +108,22 @@ const parseClassification = (
       continue;
     }
 
+    const bundleMatch = trimmed.match(
+      /^BUNDLE:\s*(\S+)\s*\|\s*([^|]+)\s*\|\s*([^|]+?)\s*\|\s*(.+)/i,
+    );
+    if (bundleMatch) {
+      bundles.push({
+        id: bundleMatch[1].trim(),
+        label: bundleMatch[2].trim(),
+        recallCondition: bundleMatch[3].trim(),
+        chunkIds: bundleMatch[4]
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      });
+      continue;
+    }
+
     const dropMatch = trimmed.match(/^DROP:\s*(.+)/i);
     if (dropMatch) {
       dropIds.push(
@@ -113,9 +142,11 @@ const parseClassification = (
     }
   }
 
-  if (keepIds.length === 0 && refs.length === 0) return undefined;
+  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0) {
+    return undefined;
+  }
 
-  return { keepIds, refs, dropIds, mvs };
+  return { keepIds, refs, dropIds, mvs, bundles };
 };
 
 /**

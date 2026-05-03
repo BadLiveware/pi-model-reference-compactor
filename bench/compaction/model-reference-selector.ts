@@ -163,8 +163,11 @@ export const createModelReferenceCompactor = (helpers: {
       });
     }
 
-    // 5. Build KEEP chunk objects
-    const keepChunks = chunks.filter((c) => classification.keepIds.includes(c.id));
+    // 5. Build KEEP chunk objects (exclude bundled chunks)
+    const bundledIds = new Set(classification.bundles?.flatMap((b) => b.chunkIds) ?? []);
+    const keepChunks = chunks.filter(
+      (c) => classification.keepIds.includes(c.id) && !bundledIds.has(c.id),
+    );
 
     // 6. Order KEEP chunks for stability
     const ordered = orderKeepChunks(keepChunks, previousKeepIds);
@@ -183,11 +186,18 @@ export const createModelReferenceCompactor = (helpers: {
       { name: "Model-Ref Recall Note", role: "recall", text: RECALL_NOTE },
     ];
 
-    const refDocs = classification.refs.map((r) => ({
-      id: r.id,
-      text: r.summary,
-      source: `model-ref-tier2` as const,
-    }));
+    const refDocs = [
+      ...classification.refs.map((r) => ({
+        id: r.id,
+        text: `${r.summary} (use vcc_recall)`,
+        source: `model-ref-tier2` as const,
+      })),
+      ...(classification.bundles ?? []).map((b) => ({
+        id: `bundle:${b.id}`,
+        text: `[${b.label}] ${b.recallCondition}. Files: ${b.chunkIds.filter((id) => id.startsWith("F")).length}, Chunks: ${b.chunkIds.length} (use vcc_recall with bundle:${b.id})`,
+        source: `model-ref-bundle` as const,
+      })),
+    ];
 
     return {
       activePromptState,
