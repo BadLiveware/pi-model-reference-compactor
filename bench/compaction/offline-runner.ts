@@ -56,7 +56,7 @@ export interface CompactorContext {
 
 export interface OfflineCompactor {
   name: string;
-  compact(context: CompactorContext): CompactorResult;
+  compact(context: CompactorContext): CompactorResult | Promise<CompactorResult>;
 }
 
 export interface TermProbeResult {
@@ -841,7 +841,7 @@ export const runOfflineCompactionBenchmark = (options: {
       testCase.compactionPoints.forEach((point, index) => {
         const sourceMessages = testCase.messages.slice(0, point);
         const cycleMessages = testCase.messages.slice(previousPoint, point);
-        const result = compactor.compact({
+        const result = await compactor.compact({
           messages: cycleMessages,
           allMessages: sourceMessages,
           previous,

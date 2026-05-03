@@ -17,6 +17,7 @@ import { buildSections } from "../../src/core/build-sections";
 import { buildCompactionState } from "../../src/core/compaction-state";
 import { chunkCompactionState, type CompactionChunk } from "../../src/core/chunk-model";
 import { mockClassify } from "../../src/core/mock-classifier";
+import { realClassify } from "../../src/core/classifier";
 import type { CompactorContext, CompactorResult, LayerSnapshot } from "./offline-runner";
 
 /** Rendered chunk as a text line for the final prompt */
@@ -103,9 +104,15 @@ export const createModelReferenceCompactor = (helpers: {
   renderedDocuments: (messages: Message[]) => Array<{ id: string; text: string; source: string }>;
 }) => ({
   name: "model-reference-selector",
-  compact: (ctx: CompactorContext): CompactorResult => {
+  compact: async (ctx: CompactorContext): Promise<CompactorResult> => {
     const { messages, allMessages, previous } = ctx;
     const inputTokens = helpers.estimateTokens(helpers.sourceTextOf(messages));
+
+    // Check env for real classifier config
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+    const classifierModel = process.env.CLASSIFIER_MODEL || "deepseek-chat";
+    const classifierBaseUrl = process.env.CLASSIFIER_BASE_URL || "https://api.deepseek.com/v1";
+    const useRealClassifier = !!(apiKey && classifierModel);
 
     // 0. Recover previous classification for merge-awareness
     const prevRefIndex = (previous as any)?.refIndex;
@@ -137,14 +144,24 @@ export const createModelReferenceCompactor = (helpers: {
       }
     }
 
-    // 4. Classify via mock model (pass previous IDs for merge-awareness)
+    // 4. Classify (real API if env vars set, else mock)
     const start = performance.now();
-    const classification: ChunkClassification = mockClassify(chunks, messages.length, {
-      previousIds: {
-        keepIds: [...previousKeepIds],
-        refIds: [...previousRefIds],
-      },
-    });
+    let classification: any;
+    if (useRealClassifier) {
+      classification = await realClassify(chunks, messages.length, {
+        baseUrl: classifierBaseUrl,
+        apiKey,
+        model: classifierModel,
+        maxTokens: 1024,
+      });
+    } else {
+      classification = mockClassify(chunks, messages.length, {
+        previousIds: {
+          keepIds: [...previousKeepIds],
+          refIds: [...previousRefIds],
+        },
+      });
+    }
 
     // 5. Build KEEP chunk objects
     const keepChunks = chunks.filter((c) => classification.keepIds.includes(c.id));
