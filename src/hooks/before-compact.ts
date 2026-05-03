@@ -5,6 +5,7 @@ import { compileWithReport } from "../core/summarize";
 import { loadSettings, type PiVccSettings } from "../core/settings";
 import { compactWithModelReference } from "../strategies/model-reference";
 import { getSessionStrategy } from "../commands/pi-vcc-strategy";
+import { buildCompactionReport, PI_VCC_COMPACTION_REPORT_TYPE } from "../core/compaction-report";
 import {
   formatCompactionReportMessageContent,
   PI_VCC_COMPACTION_REPORT_TYPE,
@@ -285,6 +286,19 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
           details: {
             readFiles: [...preparation.fileOps.read],
             modifiedFiles: [...preparation.fileOps.written, ...preparation.fileOps.edited],
+            report: {
+              version: 1,
+              sections: [
+                { name: "Model-Ref MVS", title: "MVS", role: "current", status: "new", itemCount: 1, renderedItemCount: 1, chars: mrcResult.summary.length },
+              ],
+              cappedSections: [],
+              warnings: [],
+              sourceMessageCount: agentMessages.length,
+              keptMessageCount: keptEntries.length,
+              keptTokensEst,
+              skippedInternalMessageCount,
+              classifierMs: mrcResult.stats.classifierMs,
+            },
           },
         },
       };
