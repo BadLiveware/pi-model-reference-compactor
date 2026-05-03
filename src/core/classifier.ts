@@ -35,14 +35,17 @@ DO NOT rewrite or summarize the chunk content. You only:
 4. Write a short Minimum Viable Summary (MVS) paragraph
 
 Classification rules:
-- KEEP: ONLY the 15-20 most critical chunks for continuing the CURRENT work. You MUST stay under 20 KEEP chunks total. If in doubt, put it in REF.
-  Priority order: 1) user's most recent explicit decisions ("Alright, lets do it" about a topic IS the current goal), 2) active files being edited, 3) current goal statement, 4) key constraints actively in force.
-  Do NOT keep: old goals from previous phases, review process meta-guidelines, generic evidence without specific identifiers, repeated goal variants.
-- REF: Context that is useful but not critical now. Write "Recall if <trigger condition>" so the agent knows WHEN to retrieve this. Put excess KEEP-qualifying chunks here if over budget.
-  Example: "Recall if user asks about MV/RMV (Materialized View/Refreshing Materialized View) tradeoffs" or "Recall if returning to workload-virtual-rule-optimizations".
-- DROP: Conversational fluff, status updates, repeated content, lunch discussions, greetings, stale metadata that the agent would never need to recover.
 
-BUDGET ENFORCEMENT: After classification, count your KEEP chunks. If > 20, move the lowest-priority ones to REF.
+DECISION PRINCIPLE: For each chunk, ask "Would a new agent need this to make its NEXT tool call or file edit?" If yes → KEEP. If it might help later but not now → REF. If no agent would ever need it → DROP.
+
+- KEEP: ONLY what is directly actionable for the IMMEDIATE next step. A new agent reading only KEEP chunks should know: 1) what to work on, 2) which files to touch, 3) what constraints are active, 4) what was just decided. If you can't explain why a chunk would directly affect the next read/edit/bash call, put it in REF.
+  Priority: user's last explicit decision > currently edited files > active constraints > current goal > recent evidence. Do NOT keep: old-phase goals, review meta-guidelines, generic evidence without identifiers, repeated goal variants.
+
+- REF: Context an agent might need if the conversation returns to a topic. Write "Recall if <trigger condition>" so the agent knows WHEN to retrieve this.
+
+- DROP: Fluff, status updates, duplicates, greetings, stale metadata.
+
+KEEP BUDGET: Target ~800-1,500 characters of KEEP output total (roughly 15-25 chunks depending on size). If you exceed the character budget, move lowest-priority items to REF. Prefer keeping 10 high-signal chunks over 25 low-signal ones.
 
 BUNDLE format (for parked old goals):
 - When chunks belong to a previous goal that is no longer active, group them into a named bundle.
