@@ -18,6 +18,7 @@ import { buildCompactionState } from "../../src/core/compaction-state";
 import { chunkCompactionState, type CompactionChunk } from "../../src/core/chunk-model";
 import { mockClassify } from "../../src/core/mock-classifier";
 import { realClassify } from "../../src/core/classifier";
+import { inlineSmallRefs } from "../../src/core/classifier";
 import type { CompactorContext, CompactorResult, LayerSnapshot } from "./offline-runner";
 
 /** Rendered chunk as a text line for the final prompt */
@@ -154,6 +155,8 @@ export const createModelReferenceCompactor = (helpers: {
         model: classifierModel,
         maxTokens: 1024,
       });
+      // Auto-promote tiny REFs to KEEP
+      classification = inlineSmallRefs(classification, chunks);
     } else {
       classification = mockClassify(chunks, messages.length, {
         previousIds: {

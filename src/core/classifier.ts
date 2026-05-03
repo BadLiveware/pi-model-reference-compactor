@@ -42,6 +42,7 @@ DECISION PRINCIPLE: For each chunk, ask "Would a new agent need this to make its
   Priority: user's last explicit decision > currently edited files > active constraints > current goal > recent evidence. Do NOT keep: old-phase goals, review meta-guidelines, generic evidence without identifiers, repeated goal variants.
 
 - REF: Context an agent might need if the conversation returns to a topic. Write "Recall if <trigger condition>" so the agent knows WHEN to retrieve this.
+  INLINING RULE: If the chunk content is shorter than ~120 chars — shorter than or close to the recall condition you would write — just KEEP it instead. Don't make the agent recall something it could just read.
 
 - DROP: Fluff, status updates, duplicates, greetings, stale metadata.
 
@@ -222,6 +223,31 @@ const parseClassification = (
   }
 
   return { keepIds, refs, dropIds, mvs, overarching, subGoals, bundles };
+};
+
+/**
+ * Post-process classification: auto-promote tiny REF entries to KEEP
+ * when the content is shorter than the recall overhead.
+ */
+export const inlineSmallRefs = (
+  classification: ChunkClassification,
+  chunks: CompactionChunk[],
+  maxChars = 120,
+): ChunkClassification => {
+  const promotedIds: string[] = [];
+  const keptRefs = classification.refs.filter((ref) => {
+    const chunk = chunks.find((c) => c.id === ref.id);
+    if (chunk && chunk.text.length <= maxChars) {
+      promotedIds.push(ref.id);
+      return false;
+    }
+    return true;
+  });
+  return {
+    ...classification,
+    keepIds: [...classification.keepIds, ...promotedIds],
+    refs: keptRefs,
+  };
 };
 
 /**
