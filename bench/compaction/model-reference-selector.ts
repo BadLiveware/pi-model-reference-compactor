@@ -110,9 +110,16 @@ export const createModelReferenceCompactor = (helpers: {
     const inputTokens = helpers.estimateTokens(helpers.sourceTextOf(messages));
 
     // Check env for real classifier config
-    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
     const classifierModel = process.env.CLASSIFIER_MODEL || "deepseek-chat";
     const classifierBaseUrl = process.env.CLASSIFIER_BASE_URL || "https://api.deepseek.com/v1";
+    let apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      try {
+        const auth = JSON.parse(require("fs").readFileSync(
+          require("path").join(require("os").homedir(), ".pi", "agent", "auth.json"), "utf-8"));
+        apiKey = auth?.deepseek?.key || auth?.deepseek?.apiKey;
+      } catch {}
+    }
     const useRealClassifier = !!(apiKey && classifierModel);
 
     // 0. Recover previous classification for merge-awareness

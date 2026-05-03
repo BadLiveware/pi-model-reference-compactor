@@ -42,11 +42,23 @@ export const compactWithModelReference = async (
   // 2. Chunk the state
   const chunks = chunkCompactionState(state);
 
-  // 3. Classify (real API if available, else mock)
+  // 3. Classify: prefer Pi auth, then env var, fall back to mock
   let classification: any;
-  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
   const model = process.env.CLASSIFIER_MODEL || "deepseek-chat";
   const baseUrl = process.env.CLASSIFIER_BASE_URL || "https://api.deepseek.com/v1";
+
+  // Try Pi's auth storage first
+  let apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    try {
+      const { readFileSync } = require("fs");
+      const { join } = require("path");
+      const { homedir } = require("os");
+      const authPath = join(homedir(), ".pi", "agent", "auth.json");
+      const auth = JSON.parse(readFileSync(authPath, "utf-8"));
+      apiKey = auth?.deepseek?.key || auth?.deepseek?.apiKey;
+    } catch {}
+  }
 
   if (apiKey) {
     try {
