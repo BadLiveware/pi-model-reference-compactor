@@ -218,7 +218,7 @@ const parseClassification = (
     }
   }
 
-  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0) {
+  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0 && subGoals.length === 0) {
     return undefined;
   }
 

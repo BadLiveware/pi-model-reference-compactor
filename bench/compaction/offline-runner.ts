@@ -823,7 +823,7 @@ export const failedCacheGatesOf = (cycle: CycleMetrics): string[] => {
   return failures;
 };
 
-export const runOfflineCompactionBenchmark = (options: {
+export const runOfflineCompactionBenchmark = async (options: {
   cases?: CompactionBenchmarkCase[];
   compactors?: OfflineCompactor[];
   includeDiagnostics?: boolean;
@@ -838,7 +838,7 @@ export const runOfflineCompactionBenchmark = (options: {
       let previous: CompactorResult | undefined;
       let previousPrompt: PromptSnapshot | undefined;
       let previousPoint = 0;
-      testCase.compactionPoints.forEach((point, index) => {
+      for (const [index, point] of testCase.compactionPoints.entries()) {
         const sourceMessages = testCase.messages.slice(0, point);
         const cycleMessages = testCase.messages.slice(previousPoint, point);
         const result = await compactor.compact({
@@ -852,7 +852,7 @@ export const runOfflineCompactionBenchmark = (options: {
         previous = result;
         previousPrompt = prompt;
         previousPoint = point;
-      });
+      }
     }
   }
 

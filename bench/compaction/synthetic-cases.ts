@@ -566,6 +566,34 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
     },
   },
   {
+    id: "multi-cycle-ref-promotion",
+    description: "Auth chunks become REF during database phase, promoted back when auth returns. Tests merge-awareness across 3 compactions.",
+    messages: [
+      user("Work on auth module. Implement JWT refresh token rotation in src/auth/refresh.ts."),
+      assistant("Auth module: added token rotation to src/auth/refresh.ts, commit a1b2c3d. ERR_AUTH_REFRESH request_id=req-auth-001."),
+      user("Switch to database module. Add connection pooling to src/db/pool.ts. Always use PostgreSQL."),
+      assistant("DB module: added connection pooling to src/db/pool.ts, commit d4e5f6g. CACHE_DB_POOL request_id=req-db-001."),
+      user("Back to auth module. The refresh token rotation from earlier needs audit logging."),
+      assistant("Auth module: adding audit logging to src/auth/refresh.ts per earlier JWT rotation, commit a7b8c9d."),
+    ],
+    compactionPoints: [2, 4, 6],
+    gold: {
+      // No strict activeTerms on topics — the classifier correctly demotes non-current
+      // topics to REF. This IS the multi-cycle promotion behavior we're testing.
+      currentTerms: [
+        { label: "auth file tracked", term: "src/auth/refresh.ts" },
+        { label: "db file tracked", term: "src/db/pool.ts" },
+      ],
+      recallTerms: [
+        { label: "JWT detail", term: "JWT refresh", query: "JWT refresh token" },
+        { label: "DB pooling", term: "connection pooling", query: "PostgreSQL pooling" },
+      ],
+      continuationTerms: [
+        { label: "audit logging", term: "audit logging" },
+      ],
+    },
+  },
+  {
     id: "cache-bust-volatile-next-step",
     description: "Stable objective and identifiers remain fixed while only volatile next-step state changes across cycles.",
     messages: [

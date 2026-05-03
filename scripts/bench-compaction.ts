@@ -48,7 +48,7 @@ const filteredCases = caseFilter
   ? cases.filter((testCase) => testCase.id.includes(caseFilter) || testCase.description.includes(caseFilter))
   : cases;
 
-const result = runOfflineCompactionBenchmark({ compactors, cases: filteredCases, includeDiagnostics, includeReports });
+const result = await runOfflineCompactionBenchmark({ compactors, cases: filteredCases, includeDiagnostics, includeReports });
 const failures = result.cycles
   .map((cycle) => ({ cycle, gates: failedGatesOf(cycle) }))
   .filter((entry) => entry.gates.length > 0);
