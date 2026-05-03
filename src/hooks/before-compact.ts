@@ -153,9 +153,10 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     const { preparation, branchEntries, customInstructions } = event;
     const settings = loadSettings();
 
-    // Always handle explicit /pi-vcc marker.
-    // Otherwise, only handle when user opted in via settings.
+    // Always handle explicit /pi-vcc marker (user asked for it).
+    // For auto-threshold compactions: honor overrideDefaultCompaction and session strategy.
     const isPiVcc = customInstructions === PI_VCC_COMPACT_INSTRUCTION;
+    if (!isPiVcc && getSessionStrategy() === "off") return;
     if (!isPiVcc && !settings.overrideDefaultCompaction) return;
 
     const ownCut = buildOwnCut(branchEntries as any[]);
@@ -254,6 +255,9 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     };
 
     const config = settings;
+
+    // Respect session-level off switch regardless of config
+    if (getSessionStrategy() === "off") return;
 
     // Use model-reference strategy if configured globally OR per-session
     const effectiveStrategy = getSessionStrategy() === "model-reference"

@@ -7,11 +7,11 @@
  * The strategy resets to default on session restart. No config file needed.
  */
 
-let sessionStrategy: "pi-vcc" | "model-reference" = "pi-vcc";
+let sessionStrategy: "pi-vcc" | "model-reference" | "off" = "pi-vcc";
 
 export const getSessionStrategy = () => sessionStrategy;
 
-export const setSessionStrategy = (s: "pi-vcc" | "model-reference") => {
+export const setSessionStrategy = (s: "pi-vcc" | "model-reference" | "off") => {
   sessionStrategy = s;
 };
 
@@ -34,6 +34,14 @@ export const registerPiVccMrCommand = (pi: ExtensionAPI) => {
     handler: async (_args, ctx) => {
       setSessionStrategy("pi-vcc");
       ctx.ui.notify("pi-vcc (algorithmic) compaction enabled.", "info");
+    },
+  });
+
+  pi.registerCommand("pi-vcc-off", {
+    description: "Return to Pi's built-in compaction for this session",
+    handler: async (_args, ctx) => {
+      setSessionStrategy("off");
+      ctx.ui.notify("Pi's built-in compaction restored. pi-vcc will not intercept.", "info");
     },
   });
 };
