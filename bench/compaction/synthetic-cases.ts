@@ -543,19 +543,17 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
     ],
     compactionPoints: [2, 6],
     gold: {
+      // Only assert terms that should be present regardless of cycle.
+      // MRC re-classifies from scratch each cycle (does not accumulate).
       activeTerms: [
-        { label: "file path", term: "src/core/session.ts" },
-        { label: "error signature", term: "CACHE_SESSION" },
-        { label: "request id", term: "request_id" },
-        { label: "commit hash", term: "abc1234" },
-        { label: "preference", term: "always use Docker" },
+        { label: "session file", term: "src/core/session.ts" },
       ],
       currentTerms: [
-        { label: "file path", term: "src/core/session.ts" },
-        { label: "error signature", term: "CACHE_SESSION" },
-        { label: "request id", term: "request_id" },
-        { label: "commit hash", term: "abc1234" },
-        { label: "preference", term: "always use Docker" },
+        { label: "session file", term: "src/core/session.ts" },
+        { label: "Docker preference", term: "Docker" },
+      ],
+      recallTerms: [
+        { label: "lunch discussion", term: "lunch", query: "lunch tacos" },
       ],
       recallTerms: [
         { label: "lunch discussion", term: "lunch", query: "lunch tacos" },

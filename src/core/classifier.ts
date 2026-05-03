@@ -26,6 +26,14 @@ export interface ClassifierConfig {
   timeoutMs?: number;
 }
 
+export interface ClassifierResult extends ChunkClassification {
+  /** Real token usage from API response */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+}
+
 const CLASSIFIER_SYSTEM_PROMPT = `You are a context compaction classifier. Your job is to classify conversation chunks into tiers so a future LLM can continue the work efficiently.
 
 DO NOT rewrite or summarize the chunk content. You only:
@@ -269,7 +277,7 @@ export const realClassify = async (
   chunks: CompactionChunk[],
   messageCount: number,
   config: ClassifierConfig,
-): Promise<ChunkClassification> => {
+): Promise<ClassifierResult> => {
   const { baseUrl, apiKey, model, maxTokens = 1024, timeoutMs = 30000 } = config;
 
   const userPrompt = buildChunkPrompt(chunks);
@@ -309,6 +317,14 @@ export const realClassify = async (
       throw new Error("Classifier returned empty response");
     }
 
+    const usage = data?.usage;
+    const tokenUsage = usage
+      ? {
+          promptTokens: usage.prompt_tokens || usage.promptTokens || 0,
+          completionTokens: usage.completion_tokens || usage.completionTokens || 0,
+        }
+      : undefined;
+
     const result = parseClassification(content);
     if (!result) {
       throw new Error(
@@ -316,7 +332,7 @@ export const realClassify = async (
       );
     }
 
-    return result;
+    return { ...result, usage: tokenUsage };
   } finally {
     clearTimeout(timeout);
   }

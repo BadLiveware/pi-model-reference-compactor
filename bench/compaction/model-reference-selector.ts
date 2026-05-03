@@ -148,15 +148,19 @@ export const createModelReferenceCompactor = (helpers: {
     // 4. Classify (real API if env vars set, else mock)
     const start = performance.now();
     let classification: any;
+    let realTokenUsage: { promptTokens: number; completionTokens: number } | undefined;
     if (useRealClassifier) {
-      classification = await realClassify(chunks, messages.length, {
+      const realResult = await realClassify(chunks, messages.length, {
         baseUrl: classifierBaseUrl,
         apiKey,
         model: classifierModel,
         maxTokens: 1024,
       });
+      classification = realResult;
       // Auto-promote tiny REFs to KEEP
       classification = inlineSmallRefs(classification, chunks);
+      // Store real token usage
+      realTokenUsage = realResult.usage;
     } else {
       classification = mockClassify(chunks, messages.length, {
         previousIds: {
@@ -227,6 +231,9 @@ export const createModelReferenceCompactor = (helpers: {
         compactionMs: elapsed,
         estimatedInputTokens: inputTokens,
         estimatedOutputTokens: helpers.estimateTokens(activePromptState),
+        // Real API token counts when available
+        classifierPromptTokens: realTokenUsage?.promptTokens,
+        classifierCompletionTokens: realTokenUsage?.completionTokens,
       },
       // Store classification metadata for next compaction's stability ordering
       refIndex: {
