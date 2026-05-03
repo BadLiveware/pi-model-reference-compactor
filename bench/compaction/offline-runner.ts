@@ -8,6 +8,7 @@ import { clip, textOf } from "../../src/core/content";
 import { summarizeToolResultForPrompt } from "../../src/core/tool-result-summary";
 import type { PiVccCompactionReport } from "../../src/core/compaction-report";
 import { syntheticCompactionCases, type CompactionBenchmarkCase, type ExpectedTerm } from "./synthetic-cases";
+import { createModelReferenceCompactor } from "./model-reference-selector";
 
 export type LayerRole = "static" | "current" | "history" | "recall";
 
@@ -560,6 +561,11 @@ export const offlineCompactors: OfflineCompactor[] = [
       };
     },
   },
+  createModelReferenceCompactor({
+    sourceTextOf,
+    estimateTokens,
+    renderedDocuments,
+  }),
 ];
 
 const forbiddenLeaksOf = (

@@ -531,6 +531,49 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
     },
   },
   {
+    id: "model-ref-keep-ref-drop",
+    description: "Model classifies conversation into KEEP (critical identifiers), REF (useful context), and DROP (fluff). Subsequent compactions merge with previous classifications.",
+    messages: [
+      user("Work on src/core/session.ts. The session module needs cache-aware state tracking."),
+      assistant("Working on src/core/session.ts. CACHE_SESSION probe request_id=sess-001. Added state tracking with commit abc1234."),
+      user("Also, what should I have for lunch? Thinking tacos or sushi."),
+      assistant("Tacos would be a great choice. There's a place nearby."),
+      user("OK back to work. Always use Docker for validation. Now continue on src/core/session.ts."),
+      assistant("Continuing on src/core/session.ts. Respecting Docker preference. Added validation config."),
+    ],
+    compactionPoints: [2, 6],
+    gold: {
+      activeTerms: [
+        { label: "file path", term: "src/core/session.ts" },
+        { label: "error signature", term: "CACHE_SESSION" },
+        { label: "request id", term: "request_id" },
+        { label: "commit hash", term: "abc1234" },
+        { label: "preference", term: "always use Docker" },
+      ],
+      currentTerms: [
+        { label: "file path", term: "src/core/session.ts" },
+        { label: "error signature", term: "CACHE_SESSION" },
+        { label: "request id", term: "request_id" },
+        { label: "commit hash", term: "abc1234" },
+        { label: "preference", term: "always use Docker" },
+      ],
+      recallTerms: [
+        { label: "lunch discussion", term: "lunch", query: "lunch tacos" },
+      ],
+      forbiddenTerms: [
+        { label: "lunch fluff", term: "tacos" },
+        { label: "lunch fluff", term: "sushi" },
+      ],
+      forbiddenCurrentTerms: [
+        { label: "no lunch in current", term: "tacos" },
+        { label: "no lunch in current", term: "sushi" },
+      ],
+      continuationTerms: [
+        { label: "docker preference respected", term: "Docker" },
+      ],
+    },
+  },
+  {
     id: "cache-bust-volatile-next-step",
     description: "Stable objective and identifiers remain fixed while only volatile next-step state changes across cycles.",
     messages: [
