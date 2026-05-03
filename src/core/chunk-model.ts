@@ -84,12 +84,21 @@ export const chunkCompactionState = (state: CompactionState): CompactionChunk[] 
   return chunks;
 };
 
+export interface SubGoal {
+  status: "CURRENT" | "UPCOMING" | "DEFERRED" | "COMPLETED";
+  label: string;
+  recallCondition: string;
+  ref: string;  // chunk IDs or bundle:name
+}
+
 /** Classification result from the model */
 export interface ChunkClassification {
   keepIds: string[];
   refs: Array<{ id: string; summary: string }>;
   dropIds: string[];
   mvs: string;
+  overarching?: string;
+  subGoals?: SubGoal[];
   /** Parked goal bundles for later revival */
   bundles?: GoalBundle[];
 }

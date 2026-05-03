@@ -57,31 +57,48 @@ Acronym expansion:
 - In MVS and REF summaries, expand domain acronyms on first occurrence: RMV → "RMV (Refreshing Materialized View)", MV → "MV (Materialized View)", PR → just "PR".
 - Do NOT rewrite chunk text — only expand in the summaries YOU write.
 
-Output format (strict, KEEP capped at 20):
+Output format (strict, KEEP budget ~800-1500 chars):
 ---
+OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization
 KEEP: id1, id2, id3
 REF: id4 | Recall if user asks about auth token refresh
-REF: id5 | Recall if returning to benchmark framework design
 BUNDLE: join-enrichment | Phase 3 join shapes | returning to workload-virtual-rule-optimizations | G2,D13,D14,F7,F8
 DROP: id6, id7, id8
 MVS: Working on recording rule MV (Materialized View) optimization. User decided to proceed with MV approach after discussing tradeoffs vs live queries. Part of broader PR #14.
 ---
 
-BUNDLE is optional — only use it when you can clearly group chunks that belong to a named previous goal.
-Count your KEEP chunks. If > 20, fix it before outputting.
+OVERARCHING is the session's persistent big-picture goal — the project or PR that spans all sub-tasks. It rarely changes. One line, no IDs.
+MVS is the immediate focus — what the agent should work on NEXT. It changes as sub-tasks shift.
 
-WRONG (too many KEEP, passive REF, no bundles):
-KEEP: id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, id13, id14, id15, id16, id17, id18, id19, id20, id21, id22, id23, id24
-REF: id25 | candidate decision pattern
-REF: id26 | physical decision in output
+SUBGOALS (replaces flat goal chunks in KEEP):
+- List the goal hierarchy with status: CURRENT, UPCOMING, DEFERRED, COMPLETED.
+- Format: STATUS: label | recall-condition | bundle-or-chunk-ref
+- Example:
+  SUBGOALS:
+  CURRENT: RMV optimization for recording rules | user asks about MV tradeoffs | G1,D6
+  UPCOMING: Benchmark profiling docs update | user asks about benchmark results | F12,F15
+  DEFERRED: Native range chunking | user asks about range query performance | bundle:broad-sweep
+  COMPLETED: Join enrichment shapes | workload-virtual-rule-optimizations | bundle:workload
+- Each sub-goal includes a recall condition so the agent knows when to context-switch.
+- CURRENT must have an entry. UPCOMING/DEFERRED/COMPLETED are optional.
+BUNDLE is optional — only for clearly named previous goals.
 
-RIGHT (capped KEEP, actionable REF, optional bundle):
-KEEP: G0, G1, D6, D7, D8, D9, D10, F12, F15, F18, C3, C5
-REF: D15 | Recall if user asks about physical decision structure details
-REF: F25 | Recall if returning to project structure files
+WRONG (no OVERARCHING, no SUBGOALS, MVS too broad, KEEP uncapped):
+MVS: The user is working on various things including PR #14, join shapes, recording rules, and bootstrap stability.
+KEEP: id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, ...(30 total)
+
+RIGHT (clear OVERARCHING, SUBGOALS roadmap, specific MVS, capped KEEP, parked bundles):
+OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization for promshim-ch
+SUBGOALS:
+CURRENT: RMV optimization for recording rules | user asks about MV tradeoffs | G1,D6,D7,D8
+UPCOMING: Benchmark profiling docs update | user asks about benchmark results | F12,F15
+DEFERRED: Native range chunking | user asks about range query performance | bundle:broad-sweep
+COMPLETED: Join enrichment shapes | workload-virtual-rule-optimizations | bundle:workload
+KEEP: D6, D7, D8, D9, D10, F12, F15, F18, C3, C5
+REF: D15 | Recall if user asks about physical decision structure
 BUNDLE: broad-sweep | PR #14 range query work | user asks about range query performance | F5,F6,F7,C2,C4
-DROP: P22, P23, P24, P25
-MVS: Working on recording rule MV (Materialized View) optimization for PR #14.
+DROP: P22, P23, P24
+MVS: Working on RMV (Refreshing Materialized View) optimization. User decided to proceed after discussing tradeoffs.
 
 Only output the classification block. No other text.`;
 
@@ -110,10 +127,44 @@ const parseClassification = (
   const dropIds: string[] = [];
   const bundles: Array<{ id: string; label: string; recallCondition: string; chunkIds: string[] }> = [];
   let mvs = "Continuing work from conversation.";
+  let overarching: string | undefined;
+  const subGoals: Array<{ status: string; label: string; recallCondition: string; ref: string }> = [];
+  let inSubgoals = false;
 
   for (const line of output.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
+
+    // Multi-line SUBGOALS section
+    if (trimmed.toUpperCase() === "SUBGOALS:") {
+      inSubgoals = true;
+      continue;
+    }
+    if (inSubgoals) {
+      const sgMatch = trimmed.match(
+        /^(CURRENT|UPCOMING|DEFERRED|COMPLETED):\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i,
+      );
+      if (sgMatch) {
+        subGoals.push({
+          status: sgMatch[1].toUpperCase(),
+          label: sgMatch[2].trim(),
+          recallCondition: sgMatch[3].trim(),
+          ref: sgMatch[4].trim(),
+        });
+        continue;
+      }
+      // Empty line or non-matching line ends SUBGOALS section
+      if (!trimmed.match(/^(CURRENT|UPCOMING|DEFERRED|COMPLETED):/i)) {
+        inSubgoals = false;
+      }
+      continue;
+    }
+
+    const overarchingMatch = trimmed.match(/^OVERARCHING:\s*(.+)/i);
+    if (overarchingMatch) {
+      overarching = overarchingMatch[1].trim();
+      continue;
+    }
 
     const keepMatch = trimmed.match(/^KEEP:\s*(.+)/i);
     if (keepMatch) {
@@ -170,7 +221,7 @@ const parseClassification = (
     return undefined;
   }
 
-  return { keepIds, refs, dropIds, mvs, bundles };
+  return { keepIds, refs, dropIds, mvs, overarching, subGoals, bundles };
 };
 
 /**

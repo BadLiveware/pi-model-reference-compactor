@@ -173,8 +173,25 @@ export const createModelReferenceCompactor = (helpers: {
     const ordered = orderKeepChunks(keepChunks, previousKeepIds);
 
     // 7. Render Tier 1 active prompt
+    const overarchingLine = classification.overarching
+      ? `[Overarching]\n${classification.overarching}`
+      : "";
+
+    let subGoalsBlock = "";
+    if (classification.subGoals && classification.subGoals.length > 0) {
+      const lines = classification.subGoals.map(
+        (sg) => `  ${sg.status}: ${sg.label} (${sg.recallCondition} → ${sg.ref})`,
+      );
+      subGoalsBlock = `[Sub-goals]\n${lines.join("\n")}`;
+    }
+
     const keepText = renderKeepSections(ordered);
-    const tier1 = classification.mvs + "\n\n" + keepText;
+    const tier1 = [
+      classification.mvs,
+      overarchingLine,
+      subGoalsBlock,
+      keepText,
+    ].filter(Boolean).join("\n\n");
     const activePromptState = [tier1, RECALL_NOTE].filter(Boolean).join("\n\n---\n\n");
 
     const elapsed = performance.now() - start;
