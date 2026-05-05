@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { failedCacheGatesOf, failedGatesOf, offlineCompactors, runOfflineCompactionBenchmark } from "../bench/compaction/offline-runner";
-import { syntheticCompactionCases } from "../bench/compaction/synthetic-cases";
+import { continuationProbeCases, syntheticCompactionCases } from "../bench/compaction/synthetic-cases";
 import { loadRealSessionCases } from "../bench/compaction/real-sessions";
 import { formatCompactionReportCard } from "../src/core/compaction-report";
 
@@ -22,6 +22,7 @@ const realLimit = realLimitRaw ? Number.parseInt(realLimitRaw, 10) : undefined;
 const caseFilter = argValue("--case-filter");
 const includeDiagnostics = hasFlag("--show-layer-diff");
 const includeReports = hasFlag("--include-report") || hasFlag("--explain");
+const includeProbes = hasFlag("--include-probes");
 
 const selected = argValue("--compactors")
   ?.split(",")
@@ -40,7 +41,7 @@ if (selected && compactors.length !== selected.length) {
   process.exit(1);
 }
 
-const cases = hasFlag("--real-only") ? [] : [...syntheticCompactionCases];
+const cases = hasFlag("--real-only") ? [] : [...syntheticCompactionCases, ...(includeProbes ? continuationProbeCases : [])];
 if (realSessionsDir) {
   cases.push(...await loadRealSessionCases({ sessionsDir: realSessionsDir, limit: realLimit }));
 }

@@ -93,6 +93,11 @@ const longScope = (tag: string): string =>
 const longPreference = (tag: string): string =>
   `I prefer ${tag} notes to include dashboard drift checks, benchmark explain output, report artifact paths, rollback notes, and validation evidence before broader replay.`;
 
+const readFile = (path: string, text: string): Message[] => [
+  toolCall("read", { path }),
+  toolResult("read", text),
+];
+
 export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
   {
     id: "boundary-loss-auth-refresh",
@@ -619,6 +624,74 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
       ],
       continuationTerms: [
         { label: "latest next step", term: "document live provider limits" },
+      ],
+    },
+  },
+];
+
+const readFileWorkingMapMessages: Message[] = [
+  user("Patch the plugin loader after reading the existing loader files. If the file-read working map survives compaction, continue without rereading."),
+  assistant("I will read loader, resolver, and package files, then patch only the plugin loader."),
+  ...readFile("src/runtime/loaders/node-loader.ts", [
+    "import { createRequire } from 'node:module';",
+    "export function loadNodeModule(specifier: string) {",
+    "  if (specifier.startsWith('node:')) return nativeLoad(specifier);",
+    "  return loadViaCreateRequire(specifier);",
+    "}",
+    "export const supportsSyncLoad = true;",
+  ].join("\n")),
+  ...readFile("src/runtime/loaders/extension-loader.ts", [
+    "import { createRequire } from 'node:module';",
+    "export function loadExtensionModule(specifier: string) {",
+    "  const require = createRequire(import.meta.url);",
+    "  return require(specifier);",
+    "}",
+    "export const extensionLoaderMode = 'create-require';",
+  ].join("\n")),
+  ...readFile("src/runtime/resolver.ts", [
+    "import { loadExtensionModule } from './loaders/extension-loader';",
+    "import { loadNodeModule } from './loaders/node-loader';",
+    "resolver.registerScheme('pi-extension:', loadExtensionModule);",
+    "resolver.registerScheme('node:', loadNodeModule);",
+  ].join("\n")),
+  ...Array.from({ length: 12 }, (_, index) => {
+    const n = String(index + 1).padStart(2, "0");
+    return readFile(`src/runtime/generated/noise-${n}.ts`, [
+      `export const NOISE_READ_BODY_${n} = true;`,
+      "export function generatedResolverNoise() { return 'irrelevant generated fixture'; }",
+    ].join("\n"));
+  }).flat(),
+  assistant("I have enough context. Next patch src/runtime/loaders/plugin-loader.ts to match the existing loader conventions; reread only if compaction loses the code map."),
+  user("Compact now, then continue without rereading: implement src/runtime/loaders/plugin-loader.ts using the same scheme registration and sync-load convention."),
+];
+
+export const continuationProbeCases: CompactionBenchmarkCase[] = [
+  {
+    id: "probe-read-file-working-map",
+    description: "A large read-file working map contains cross-file code patterns needed for the next edit.",
+    messages: readFileWorkingMapMessages,
+    compactionPoints: [readFileWorkingMapMessages.length],
+    gold: {
+      activeTerms: [
+        { label: "createRequire pattern from read output", term: "createRequire(import.meta.url)" },
+        { label: "scheme registration from read output", term: "resolver.registerScheme('pi-extension:'" },
+        { label: "sync load convention from read output", term: "supportsSyncLoad" },
+        { label: "target file", term: "src/runtime/loaders/plugin-loader.ts" },
+      ],
+      currentTerms: [
+        { label: "target file", term: "src/runtime/loaders/plugin-loader.ts" },
+      ],
+      recallTerms: [
+        { label: "node loader fallback body", term: "loadViaCreateRequire", query: "loadViaCreateRequire node loader" },
+        { label: "extension loader createRequire body", term: "createRequire(import.meta.url)", query: "extension loader createRequire" },
+        { label: "resolver scheme body", term: "resolver.registerScheme('pi-extension:'", query: "pi-extension resolver scheme" },
+      ],
+      activeAbsentTerms: [
+        { label: "irrelevant generated read body", term: "NOISE_READ_BODY_12" },
+      ],
+      continuationTerms: [
+        { label: "no reread continuation", term: "without rereading" },
+        { label: "same scheme registration", term: "scheme registration" },
       ],
     },
   },

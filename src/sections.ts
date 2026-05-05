@@ -5,6 +5,7 @@ export interface SectionData {
   currentScope: string[];
   outstandingContext: string[];
   filesAndChanges: string[];
+  readContext: string[];
   commits: string[];
   evidenceHandles: string[];
   userPreferences: string[];

@@ -20,6 +20,7 @@ export interface CompactionState {
     currentScope: string[];
     recentScopeUpdates: string[];
     filesAndChanges: string[];
+    readContext: string[];
     commits: string[];
     recentCommits: string[];
     evidenceHandles: string[];
@@ -43,6 +44,7 @@ export const CURRENT_SECTION_ORDER = [
   "Evidence Handles",
   "User Preferences",
   "Current Scope",
+  "Recent Read Context",
   "Recent Commits",
   "Recent Scope Updates",
   "Recent User Preferences",
@@ -56,6 +58,7 @@ const stateKeyOf = (section: CurrentSectionName): keyof CompactionState["current
   switch (section) {
     case "Session Goal": return "sessionGoal";
     case "Current Scope": return "currentScope";
+    case "Recent Read Context": return "readContext";
     case "Recent Scope Updates": return "recentScopeUpdates";
     case "Files And Changes": return "filesAndChanges";
     case "Commits": return "commits";
@@ -75,6 +78,14 @@ export const RECENT_SECTION_ITEM_LIMITS: Partial<Record<CurrentSectionName, numb
   "Recent Evidence Handles": 8,
 };
 
+export const CURRENT_SECTION_ITEM_LIMITS: Partial<Record<CurrentSectionName, number>> = {
+  "Recent Read Context": 4,
+};
+
+export const CURRENT_SECTION_ITEM_CHAR_LIMITS: Partial<Record<CurrentSectionName, number>> = {
+  "Recent Read Context": 260,
+};
+
 export const RECENT_SECTION_ITEM_CHAR_LIMITS: Partial<Record<CurrentSectionName, number>> = {
   "Recent Scope Updates": 86,
   "Recent User Preferences": 74,
@@ -82,12 +93,12 @@ export const RECENT_SECTION_ITEM_CHAR_LIMITS: Partial<Record<CurrentSectionName,
 };
 
 const cappedItems = (title: CurrentSectionName, items: string[]): string[] => {
-  const limit = RECENT_SECTION_ITEM_LIMITS[title];
+  const limit = RECENT_SECTION_ITEM_LIMITS[title] ?? CURRENT_SECTION_ITEM_LIMITS[title];
   return limit && items.length > limit ? items.slice(-limit) : items;
 };
 
 const clippedItem = (title: CurrentSectionName, item: string): string => {
-  const limit = RECENT_SECTION_ITEM_CHAR_LIMITS[title];
+  const limit = RECENT_SECTION_ITEM_CHAR_LIMITS[title] ?? CURRENT_SECTION_ITEM_CHAR_LIMITS[title];
   if (!limit || item.length <= limit) return item;
   const marker = " ... ";
   const suffix = " (+more)";
@@ -114,6 +125,7 @@ export const buildCompactionState = (data: SectionData): CompactionState => ({
     currentScope: data.currentScope,
     recentScopeUpdates: [],
     filesAndChanges: data.filesAndChanges,
+    readContext: data.readContext,
     commits: data.commits,
     recentCommits: [],
     evidenceHandles: data.evidenceHandles,
@@ -145,6 +157,7 @@ const emptyCurrent = (): CompactionState["current"] => ({
   currentScope: [],
   recentScopeUpdates: [],
   filesAndChanges: [],
+  readContext: [],
   commits: [],
   recentCommits: [],
   evidenceHandles: [],

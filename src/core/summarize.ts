@@ -79,6 +79,8 @@ const mergeHeaderSection = (header: string, prev: string, fresh: string): string
   if (header === "User Preferences" && prev && fresh && !/\b(correction|never)\b/i.test(fresh)) return prev;
   // Keep established scope stable; additive fresh scope is rendered later.
   if (header === "Current Scope") return prev || fresh;
+  // Recent read context is a short-lived working map for immediate continuation.
+  if (header === "Recent Read Context") return fresh;
   // Outstanding Context is volatile -- always use fresh only.
   if (header === "Outstanding Context") return fresh;
   if (!prev) return fresh;

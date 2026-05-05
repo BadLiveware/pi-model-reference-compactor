@@ -25,6 +25,7 @@ const outDir = resolve(valueOf("--out", join(tmpdir(), `pi-vcc-compaction-compar
 const keepWorktrees = hasFlag("--keep-worktrees");
 const includeRealOnly = hasFlag("--real-only");
 const includeLayerDiff = hasFlag("--show-layer-diff");
+const includeProbes = hasFlag("--include-probes");
 
 const run = (command, commandArgs, options = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -62,6 +63,7 @@ const benchArgs = () => {
   if (realLimit) out.push("--real-limit", realLimit);
   if (caseFilter) out.push("--case-filter", caseFilter);
   if (includeLayerDiff) out.push("--show-layer-diff");
+  if (includeProbes) out.push("--include-probes");
   return out;
 };
 
@@ -235,6 +237,7 @@ const markdownReport = ({ baselineRows, headRows, baselinePath, headPath }) => {
   if (realSessionsDir) lines.push(`- Real sessions: \`${realSessionsDir}\``);
   if (realLimit) lines.push(`- Real session limit: \`${realLimit}\``);
   if (caseFilter) lines.push(`- Case filter: \`${caseFilter}\``);
+  if (includeProbes) lines.push("- Probe cases: included");
   lines.push(`- Baseline JSONL: \`${baselinePath}\``);
   lines.push(`- Head JSONL: \`${headPath}\``);
   lines.push("");

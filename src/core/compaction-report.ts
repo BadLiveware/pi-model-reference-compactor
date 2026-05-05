@@ -1,4 +1,5 @@
 import {
+  CURRENT_SECTION_ITEM_LIMITS,
   CURRENT_SECTION_ORDER,
   RECENT_SECTION_ITEM_LIMITS,
   type CompactionState,
@@ -83,6 +84,7 @@ const STABLE_CURRENT_SECTIONS = new Set<string>([
 ]);
 
 const RECENT_VOLATILE_SECTIONS = new Set<string>([
+  "Recent Read Context",
   "Recent Commits",
   "Recent Scope Updates",
   "Recent User Preferences",
@@ -105,6 +107,7 @@ const stateItemsOf = (state: CompactionState, title: CurrentSectionName): string
     case "Evidence Handles": return state.current.evidenceHandles;
     case "User Preferences": return state.current.userPreferences;
     case "Current Scope": return state.current.currentScope;
+    case "Recent Read Context": return state.current.readContext;
     case "Recent Scope Updates": return state.current.recentScopeUpdates;
     case "Recent User Preferences": return state.current.recentUserPreferences;
     case "Recent Evidence Handles": return state.current.recentEvidenceHandles;
@@ -166,7 +169,7 @@ const previewOf = (layer: CompiledSummaryLayer): string[] =>
 
 const capOf = (title: string, itemCount: number): CompactionReportCap | undefined => {
   if (!isCurrentSectionName(title)) return undefined;
-  const limit = RECENT_SECTION_ITEM_LIMITS[title];
+  const limit = RECENT_SECTION_ITEM_LIMITS[title] ?? CURRENT_SECTION_ITEM_LIMITS[title];
   if (!limit || itemCount <= limit) return undefined;
   return {
     section: title,
@@ -193,7 +196,7 @@ export const buildCompactionReport = (input: BuildCompactionReportInput): PiVccC
       itemCount,
       renderedItemCount,
       chars: layer.text.length,
-      limit: isCurrentSectionName(title) ? RECENT_SECTION_ITEM_LIMITS[title] : undefined,
+      limit: isCurrentSectionName(title) ? RECENT_SECTION_ITEM_LIMITS[title] ?? CURRENT_SECTION_ITEM_LIMITS[title] : undefined,
       capped,
       reason: reasonOf(policy),
       preview: previewOf(layer),
