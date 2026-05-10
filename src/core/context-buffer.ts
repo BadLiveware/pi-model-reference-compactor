@@ -81,11 +81,15 @@ export const pushContextSlot = (
   writeBuffer(sessionFile, buffer);
 };
 
+const SENSITIVE_KEY_RE = /authorization|api[-_]?key|token|secret|password|credential|cookie/i;
+
 const toJsonPayload = (value: unknown): unknown =>
-  JSON.parse(JSON.stringify(value));
+  JSON.parse(JSON.stringify(value, (key, nested) =>
+    SENSITIVE_KEY_RE.test(key) ? "[redacted]" : nested,
+  ));
 
 /**
- * Push the provider request payload produced after Pi's context-to-provider conversion.
+ * Push a redacted provider request payload produced after Pi's context-to-provider conversion.
  */
 export const pushProviderRequestSlot = (
   sessionFile: string,

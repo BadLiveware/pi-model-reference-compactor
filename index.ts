@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { scaffoldSettings } from "./src/core/settings";
+import { loadSettings, scaffoldSettings } from "./src/core/settings";
 import { registerBeforeCompactHook } from "./src/hooks/before-compact";
 import { registerMrcReferenceJournalHook } from "./src/hooks/mrc-reference-journal";
 import { registerPiMrcCommand } from "./src/commands/pi-mrc";
@@ -23,9 +23,10 @@ export default (pi: ExtensionAPI) => {
     });
   });
 
-  // Also buffer the final provider payload so users can audit exactly what Pi
-  // sends after context conversion and provider shaping.
+  // When debug mode is enabled, also buffer the final provider payload so users
+  // can audit what Pi sends after context conversion and provider shaping.
   pi.on("before_provider_request", (event, ctx) => {
+    if (!loadSettings().debug) return;
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) return;
     pushProviderRequestSlot(sessionFile, {

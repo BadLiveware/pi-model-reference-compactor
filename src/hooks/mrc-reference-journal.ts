@@ -10,7 +10,7 @@ import {
   renderMrcReferenceAnchor,
 } from "../core/mrc-reference-journal";
 
-const shouldJournalReferences = (): boolean => !isPiMrcDisabled();
+const shouldJournalReferences = (sessionFile?: string): boolean => !isPiMrcDisabled(sessionFile);
 
 const latestUserTurn = (messages: any[]): any[] => {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -21,7 +21,7 @@ const latestUserTurn = (messages: any[]): any[] => {
 
 export const registerMrcReferenceJournalHook = (pi: ExtensionAPI) => {
   pi.on("context", (event, ctx) => {
-    if (!shouldJournalReferences()) return;
+    if (!shouldJournalReferences(ctx.sessionManager.getSessionFile())) return;
     const content = renderEphemeralMrcRefs(ctx.sessionManager.getBranch(), 8, event.messages as any[]);
     if (!content) return;
     return {
@@ -36,8 +36,8 @@ export const registerMrcReferenceJournalHook = (pi: ExtensionAPI) => {
     };
   });
 
-  pi.on("agent_end", async (event) => {
-    if (!shouldJournalReferences()) return;
+  pi.on("agent_end", async (event, ctx) => {
+    if (!shouldJournalReferences(ctx.sessionManager.getSessionFile())) return;
     const messages = convertToLlm(latestUserTurn(event.messages as any[]));
     const journal = buildMrcReferenceJournal(messages, { maxRefs: 8 });
     if (!journal) return;

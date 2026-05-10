@@ -194,7 +194,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     const settings = loadSettings();
 
     const isPiMrc = customInstructions === PI_MRC_COMPACT_INSTRUCTION;
-    if (!isPiMrc && isPiMrcDisabled()) return;
+    if (!isPiMrc && isPiMrcDisabled(ctx.sessionManager.getSessionFile())) return;
     if (!isPiMrc && !settings.overrideDefaultCompaction) return;
 
     const ownCut = buildOwnCut(branchEntries as any[]);

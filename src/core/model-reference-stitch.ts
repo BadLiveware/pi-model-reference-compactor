@@ -128,7 +128,7 @@ const renderSubGoals = (classification: ChunkClassification): string => {
   }
   if (completed.length > 0) {
     sections.push(`[Completed Subgoals]\n${completed.map(
-      (subGoal) => `- ${subGoal.label} — ${subGoal.note} (recall: ${subGoal.recallCondition} → ${subGoal.ref})`,
+      (subGoal) => `COMPLETED: ${subGoal.label} — ${subGoal.note} (recall: ${subGoal.recallCondition} → ${subGoal.ref})`,
     ).join("\n")}`);
   }
   return sections.join("\n\n");
