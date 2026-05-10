@@ -77,6 +77,9 @@ Acronym expansion:
 Output format (strict, KEEP budget ~800-1500 chars):
 ---
 OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization
+THREADS:
+CURRENT: Recording rule optimization | likely next code/review focus | user asks about MV tradeoffs | id1,id2
+COMPLETED: Bootstrap stability fixes | completed rationale prevents rework | user asks about bootstrap decisions | bundle:bootstrap
 KEEP: id1, id2, id3
 REF: id4 | Recall if user asks about auth token refresh
 BUNDLE: join-enrichment | Phase 3 join shapes | returning to workload-virtual-rule-optimizations | G2,D13,D14,F7,F8
@@ -87,30 +90,36 @@ MVS: Working on recording rule MV (Materialized View) optimization. User decided
 OVERARCHING is the session's persistent big-picture goal — the project or PR that spans all sub-tasks. It rarely changes. One line, no IDs.
 MVS is the immediate focus — what the agent should work on NEXT. It changes as sub-tasks shift.
 
-SUBGOALS (replaces flat goal chunks in KEEP):
-- List the goal hierarchy with status: CURRENT, UPCOMING, DEFERRED, COMPLETED.
-- Format: STATUS: label | recall-condition | bundle-or-chunk-ref
+THREADS (replaces flat goal chunks in KEEP):
+- Preserve OVERARCHING as the durable north-star goal.
+- List workstreams as CURRENT or COMPLETED only. Do not output UPCOMING or DEFERRED statuses.
+- CURRENT threads are priority-ordered by expected continuation value: the first CURRENT thread is the work the agent should most likely continue now.
+- COMPLETED threads record finished work, decisions, or rationale that prevent rework.
+- If a topic is neither current nor completed, park it in REF or BUNDLE instead of inventing another status.
+- Format: STATUS: label | priority-reason-or-outcome | recall-condition | bundle-or-chunk-ref
 - Example:
-  SUBGOALS:
-  CURRENT: RMV optimization for recording rules | user asks about MV tradeoffs | G1,D6
-  UPCOMING: Benchmark profiling docs update | user asks about benchmark results | F12,F15
-  DEFERRED: Native range chunking | user asks about range query performance | bundle:broad-sweep
-  COMPLETED: Join enrichment shapes | workload-virtual-rule-optimizations | bundle:workload
-- Each sub-goal includes a recall condition so the agent knows when to context-switch.
-- CURRENT must have an entry. UPCOMING/DEFERRED/COMPLETED are optional.
+  THREADS:
+  CURRENT: RMV optimization for recording rules | likely next code/review focus | user asks about MV tradeoffs | G1,D6
+  CURRENT: Benchmark profiling docs update | supports current PR confidence after code work | user asks about benchmark results | F12,F15
+  COMPLETED: Join enrichment shapes | implementation and decision rationale already resolved | workload-virtual-rule-optimizations | bundle:workload
+- Each thread includes a recall condition so the agent knows when to context-switch.
+- At least one CURRENT thread is required when active work is visible. COMPLETED threads are optional.
 BUNDLE is optional — only for clearly named previous goals.
 
-WRONG (no OVERARCHING, no SUBGOALS, MVS too broad, KEEP uncapped):
+WRONG (no OVERARCHING, finite project-board statuses, MVS too broad, KEEP uncapped):
 MVS: The user is working on various things including PR #14, join shapes, recording rules, and bootstrap stability.
-KEEP: id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, ...(30 total)
-
-RIGHT (clear OVERARCHING, SUBGOALS roadmap, specific MVS, capped KEEP, parked bundles):
-OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization for promshim-ch
 SUBGOALS:
-CURRENT: RMV optimization for recording rules | user asks about MV tradeoffs | G1,D6,D7,D8
+CURRENT: RMV optimization for recording rules | user asks about MV tradeoffs | G1,D6
 UPCOMING: Benchmark profiling docs update | user asks about benchmark results | F12,F15
 DEFERRED: Native range chunking | user asks about range query performance | bundle:broad-sweep
-COMPLETED: Join enrichment shapes | workload-virtual-rule-optimizations | bundle:workload
+KEEP: id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, ...(30 total)
+
+RIGHT (clear OVERARCHING, priority-ordered CURRENT threads, completed anti-rework memory):
+OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization for promshim-ch
+THREADS:
+CURRENT: RMV optimization for recording rules | likely next code/review focus | user asks about MV tradeoffs | G1,D6,D7,D8
+CURRENT: Benchmark profiling docs update | supports current PR confidence after code work | user asks about benchmark results | F12,F15
+COMPLETED: Join enrichment shapes | implementation and decision rationale already resolved | workload-virtual-rule-optimizations | bundle:workload
 KEEP: D6, D7, D8, D9, D10, F12, F15, F18, C3, C5
 REF: D15 | Recall if user asks about physical decision structure
 BUNDLE: broad-sweep | PR #14 range query work | user asks about range query performance | F5,F6,F7,C2,C4
@@ -145,37 +154,55 @@ const parseClassification = (
   const bundles: Array<{ id: string; label: string; recallCondition: string; chunkIds: string[] }> = [];
   let mvs = "Continuing work from conversation.";
   let overarching: string | undefined;
-  const subGoals: Array<{ status: string; label: string; recallCondition: string; ref: string }> = [];
-  let inSubgoals = false;
+  const threads: Array<{ status: "CURRENT" | "COMPLETED"; label: string; note: string; recallCondition: string; ref: string }> = [];
+  let inThreads = false;
 
   for (const line of output.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Multi-line SUBGOALS section
-    if (trimmed.toUpperCase() === "SUBGOALS:") {
-      inSubgoals = true;
+    // Multi-line THREADS section. Legacy SUBGOALS is accepted for resilience,
+    // but only CURRENT and COMPLETED are rendered into the new thread model.
+    if (trimmed.toUpperCase() === "THREADS:" || trimmed.toUpperCase() === "SUBGOALS:") {
+      inThreads = true;
       continue;
     }
-    if (inSubgoals) {
-      const sgMatch = trimmed.match(
-        /^(CURRENT|UPCOMING|DEFERRED|COMPLETED):\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i,
+    if (inThreads) {
+      const threadMatch = trimmed.match(
+        /^(CURRENT|COMPLETED):\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i,
       );
-      if (sgMatch) {
-        subGoals.push({
-          status: sgMatch[1].toUpperCase(),
-          label: sgMatch[2].trim(),
-          recallCondition: sgMatch[3].trim(),
-          ref: sgMatch[4].trim(),
+      if (threadMatch) {
+        threads.push({
+          status: threadMatch[1].toUpperCase() as "CURRENT" | "COMPLETED",
+          label: threadMatch[2].trim(),
+          note: threadMatch[3].trim(),
+          recallCondition: threadMatch[4].trim(),
+          ref: threadMatch[5].trim(),
         });
         continue;
       }
-      // Malformed subgoal lines with a valid status should be ignored without
-      // ending the section; another valid subgoal may follow.
-      if (/^(CURRENT|UPCOMING|DEFERRED|COMPLETED):/i.test(trimmed)) continue;
-      // A non-subgoal line ends SUBGOALS; fall through so this same line can
+      const legacyThreadMatch = trimmed.match(
+        /^(CURRENT|COMPLETED):\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i,
+      );
+      if (legacyThreadMatch) {
+        threads.push({
+          status: legacyThreadMatch[1].toUpperCase() as "CURRENT" | "COMPLETED",
+          label: legacyThreadMatch[2].trim(),
+          note: legacyThreadMatch[1].toUpperCase() === "CURRENT" ? "active continuation focus" : "completed context",
+          recallCondition: legacyThreadMatch[3].trim(),
+          ref: legacyThreadMatch[4].trim(),
+        });
+        continue;
+      }
+      // Malformed CURRENT/COMPLETED thread lines should be ignored without
+      // ending the section; another valid thread may follow.
+      if (/^(CURRENT|COMPLETED):/i.test(trimmed)) continue;
+      // Ignore legacy project-board statuses rather than preserving a finite
+      // UPCOMING/DEFERRED lifecycle model in the compacted summary.
+      if (/^(UPCOMING|DEFERRED):/i.test(trimmed)) continue;
+      // A non-thread line ends THREADS; fall through so this same line can
       // still be parsed as KEEP/REF/BUNDLE/DROP/MVS below.
-      inSubgoals = false;
+      inThreads = false;
     }
 
     const overarchingMatch = trimmed.match(/^OVERARCHING:\s*(.+)/i);
@@ -235,11 +262,11 @@ const parseClassification = (
     }
   }
 
-  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0 && subGoals.length === 0) {
+  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0 && threads.length === 0) {
     return undefined;
   }
 
-  return { keepIds, refs, dropIds, mvs, overarching, subGoals, bundles };
+  return { keepIds, refs, dropIds, mvs, overarching, threads, bundles };
 };
 
 /**

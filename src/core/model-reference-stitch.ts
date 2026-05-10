@@ -116,12 +116,22 @@ export const renderKeepSections = (chunks: CompactionChunk[]): string => {
   return sections.join("\n\n");
 };
 
-const renderSubGoals = (classification: ChunkClassification): string => {
-  if (!classification.subGoals || classification.subGoals.length === 0) return "";
-  const lines = classification.subGoals.map(
-    (subGoal) => `${subGoal.status}: ${subGoal.label} (${subGoal.recallCondition} → ${subGoal.ref})`,
-  );
-  return `[Sub-goals]\n${lines.join("\n")}`;
+const renderThreads = (classification: ChunkClassification): string => {
+  if (!classification.threads || classification.threads.length === 0) return "";
+  const current = classification.threads.filter((thread) => thread.status === "CURRENT");
+  const completed = classification.threads.filter((thread) => thread.status === "COMPLETED");
+  const sections: string[] = [];
+  if (current.length > 0) {
+    sections.push(`[Current Threads]\n${current.map(
+      (thread, index) => `${index + 1}. ${thread.label} — ${thread.note} (recall: ${thread.recallCondition} → ${thread.ref})`,
+    ).join("\n")}`);
+  }
+  if (completed.length > 0) {
+    sections.push(`[Completed Threads]\n${completed.map(
+      (thread) => `- ${thread.label} — ${thread.note} (recall: ${thread.recallCondition} → ${thread.ref})`,
+    ).join("\n")}`);
+  }
+  return sections.join("\n\n");
 };
 
 export const renderRetrievableIndex = (classification: ChunkClassification): string => {
@@ -211,7 +221,7 @@ export const renderModelReferenceSummary = (
   const parts = [
     classification.mvs,
     classification.overarching ? `[Overarching]\n${classification.overarching}` : "",
-    renderSubGoals(classification),
+    renderThreads(classification),
     renderKeepSections(orderedKeep),
     options.includeRetrievable ? renderRetrievableIndex(classification) : "",
   ].filter(Boolean);

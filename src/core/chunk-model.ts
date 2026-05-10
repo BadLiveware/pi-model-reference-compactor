@@ -86,9 +86,12 @@ export const chunkCompactionState = (state: CompactionState): CompactionChunk[] 
   return chunks;
 };
 
-export interface SubGoal {
-  status: "CURRENT" | "UPCOMING" | "DEFERRED" | "COMPLETED";
+export interface Thread {
+  /** CURRENT threads are priority-ordered; COMPLETED threads prevent rework. */
+  status: "CURRENT" | "COMPLETED";
   label: string;
+  /** Priority reason for CURRENT threads; outcome/rationale for COMPLETED threads. */
+  note: string;
   recallCondition: string;
   ref: string;  // chunk IDs or bundle:name
 }
@@ -100,7 +103,7 @@ export interface ChunkClassification {
   dropIds: string[];
   mvs: string;
   overarching?: string;
-  subGoals?: SubGoal[];
+  threads?: Thread[];
   /** Parked goal bundles for later revival */
   bundles?: GoalBundle[];
 }
