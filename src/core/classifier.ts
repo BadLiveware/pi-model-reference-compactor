@@ -77,7 +77,7 @@ Acronym expansion:
 Output format (strict, KEEP budget ~800-1500 chars):
 ---
 OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization
-THREADS:
+SUBGOALS:
 CURRENT: Recording rule optimization | likely next code/review focus | user asks about MV tradeoffs | id1,id2
 COMPLETED: Bootstrap stability fixes | completed rationale prevents rework | user asks about bootstrap decisions | bundle:bootstrap
 KEEP: id1, id2, id3
@@ -90,20 +90,20 @@ MVS: Working on recording rule MV (Materialized View) optimization. User decided
 OVERARCHING is the session's persistent big-picture goal — the project or PR that spans all sub-tasks. It rarely changes. One line, no IDs.
 MVS is the immediate focus — what the agent should work on NEXT. It changes as sub-tasks shift.
 
-THREADS (replaces flat goal chunks in KEEP):
+SUBGOALS (replaces flat goal chunks in KEEP):
 - Preserve OVERARCHING as the durable north-star goal.
-- List workstreams as CURRENT or COMPLETED only. Do not output UPCOMING or DEFERRED statuses.
-- CURRENT threads are priority-ordered by expected continuation value: the first CURRENT thread is the work the agent should most likely continue now.
-- COMPLETED threads record finished work, decisions, or rationale that prevent rework.
+- List subgoals as CURRENT or COMPLETED only. Do not output UPCOMING or DEFERRED statuses.
+- CURRENT subgoals are priority-ordered by expected continuation value: the first CURRENT subgoal is the work the agent should most likely continue now.
+- COMPLETED subgoals record finished work, decisions, or rationale that prevent rework.
 - If a topic is neither current nor completed, park it in REF or BUNDLE instead of inventing another status.
 - Format: STATUS: label | priority-reason-or-outcome | recall-condition | bundle-or-chunk-ref
 - Example:
-  THREADS:
+  SUBGOALS:
   CURRENT: RMV optimization for recording rules | likely next code/review focus | user asks about MV tradeoffs | G1,D6
   CURRENT: Benchmark profiling docs update | supports current PR confidence after code work | user asks about benchmark results | F12,F15
   COMPLETED: Join enrichment shapes | implementation and decision rationale already resolved | workload-virtual-rule-optimizations | bundle:workload
-- Each thread includes a recall condition so the agent knows when to context-switch.
-- At least one CURRENT thread is required when active work is visible. COMPLETED threads are optional.
+- Each subgoal includes a recall condition so the agent knows when to context-switch.
+- At least one CURRENT subgoal is required when active work is visible. COMPLETED subgoals are optional.
 BUNDLE is optional — only for clearly named previous goals.
 
 WRONG (no OVERARCHING, finite project-board statuses, MVS too broad, KEEP uncapped):
@@ -114,9 +114,9 @@ UPCOMING: Benchmark profiling docs update | user asks about benchmark results | 
 DEFERRED: Native range chunking | user asks about range query performance | bundle:broad-sweep
 KEEP: id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, ...(30 total)
 
-RIGHT (clear OVERARCHING, priority-ordered CURRENT threads, completed anti-rework memory):
+RIGHT (clear OVERARCHING, priority-ordered CURRENT subgoals, completed anti-rework memory):
 OVERARCHING: PR #14 feat/broad-sweep — native range chunking, benchmarking, recording rule optimization for promshim-ch
-THREADS:
+SUBGOALS:
 CURRENT: RMV optimization for recording rules | likely next code/review focus | user asks about MV tradeoffs | G1,D6,D7,D8
 CURRENT: Benchmark profiling docs update | supports current PR confidence after code work | user asks about benchmark results | F12,F15
 COMPLETED: Join enrichment shapes | implementation and decision rationale already resolved | workload-virtual-rule-optimizations | bundle:workload
@@ -154,55 +154,55 @@ const parseClassification = (
   const bundles: Array<{ id: string; label: string; recallCondition: string; chunkIds: string[] }> = [];
   let mvs = "Continuing work from conversation.";
   let overarching: string | undefined;
-  const threads: Array<{ status: "CURRENT" | "COMPLETED"; label: string; note: string; recallCondition: string; ref: string }> = [];
-  let inThreads = false;
+  const subGoals: Array<{ status: "CURRENT" | "COMPLETED"; label: string; note: string; recallCondition: string; ref: string }> = [];
+  let inSubGoals = false;
 
   for (const line of output.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Multi-line THREADS section. Legacy SUBGOALS is accepted for resilience,
-    // but only CURRENT and COMPLETED are rendered into the new thread model.
-    if (trimmed.toUpperCase() === "THREADS:" || trimmed.toUpperCase() === "SUBGOALS:") {
-      inThreads = true;
+    // Multi-line SUBGOALS section. Legacy THREADS is accepted for resilience,
+    // but only CURRENT and COMPLETED are rendered into the subgoal model.
+    if (trimmed.toUpperCase() === "SUBGOALS:" || trimmed.toUpperCase() === "THREADS:") {
+      inSubGoals = true;
       continue;
     }
-    if (inThreads) {
-      const threadMatch = trimmed.match(
+    if (inSubGoals) {
+      const subGoalMatch = trimmed.match(
         /^(CURRENT|COMPLETED):\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i,
       );
-      if (threadMatch) {
-        threads.push({
-          status: threadMatch[1].toUpperCase() as "CURRENT" | "COMPLETED",
-          label: threadMatch[2].trim(),
-          note: threadMatch[3].trim(),
-          recallCondition: threadMatch[4].trim(),
-          ref: threadMatch[5].trim(),
+      if (subGoalMatch) {
+        subGoals.push({
+          status: subGoalMatch[1].toUpperCase() as "CURRENT" | "COMPLETED",
+          label: subGoalMatch[2].trim(),
+          note: subGoalMatch[3].trim(),
+          recallCondition: subGoalMatch[4].trim(),
+          ref: subGoalMatch[5].trim(),
         });
         continue;
       }
-      const legacyThreadMatch = trimmed.match(
+      const legacySubGoalMatch = trimmed.match(
         /^(CURRENT|COMPLETED):\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i,
       );
-      if (legacyThreadMatch) {
-        threads.push({
-          status: legacyThreadMatch[1].toUpperCase() as "CURRENT" | "COMPLETED",
-          label: legacyThreadMatch[2].trim(),
-          note: legacyThreadMatch[1].toUpperCase() === "CURRENT" ? "active continuation focus" : "completed context",
-          recallCondition: legacyThreadMatch[3].trim(),
-          ref: legacyThreadMatch[4].trim(),
+      if (legacySubGoalMatch) {
+        subGoals.push({
+          status: legacySubGoalMatch[1].toUpperCase() as "CURRENT" | "COMPLETED",
+          label: legacySubGoalMatch[2].trim(),
+          note: legacySubGoalMatch[1].toUpperCase() === "CURRENT" ? "active continuation focus" : "completed context",
+          recallCondition: legacySubGoalMatch[3].trim(),
+          ref: legacySubGoalMatch[4].trim(),
         });
         continue;
       }
-      // Malformed CURRENT/COMPLETED thread lines should be ignored without
-      // ending the section; another valid thread may follow.
+      // Malformed CURRENT/COMPLETED subgoal lines should be ignored without
+      // ending the section; another valid subgoal may follow.
       if (/^(CURRENT|COMPLETED):/i.test(trimmed)) continue;
       // Ignore legacy project-board statuses rather than preserving a finite
       // UPCOMING/DEFERRED lifecycle model in the compacted summary.
       if (/^(UPCOMING|DEFERRED):/i.test(trimmed)) continue;
-      // A non-thread line ends THREADS; fall through so this same line can
+      // A non-subgoal line ends SUBGOALS; fall through so this same line can
       // still be parsed as KEEP/REF/BUNDLE/DROP/MVS below.
-      inThreads = false;
+      inSubGoals = false;
     }
 
     const overarchingMatch = trimmed.match(/^OVERARCHING:\s*(.+)/i);
@@ -262,11 +262,11 @@ const parseClassification = (
     }
   }
 
-  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0 && threads.length === 0) {
+  if (keepIds.length === 0 && refs.length === 0 && bundles.length === 0 && subGoals.length === 0) {
     return undefined;
   }
 
-  return { keepIds, refs, dropIds, mvs, overarching, threads, bundles };
+  return { keepIds, refs, dropIds, mvs, overarching, subGoals, bundles };
 };
 
 /**

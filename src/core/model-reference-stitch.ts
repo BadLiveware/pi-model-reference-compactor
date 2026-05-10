@@ -116,19 +116,19 @@ export const renderKeepSections = (chunks: CompactionChunk[]): string => {
   return sections.join("\n\n");
 };
 
-const renderThreads = (classification: ChunkClassification): string => {
-  if (!classification.threads || classification.threads.length === 0) return "";
-  const current = classification.threads.filter((thread) => thread.status === "CURRENT");
-  const completed = classification.threads.filter((thread) => thread.status === "COMPLETED");
+const renderSubGoals = (classification: ChunkClassification): string => {
+  if (!classification.subGoals || classification.subGoals.length === 0) return "";
+  const current = classification.subGoals.filter((subGoal) => subGoal.status === "CURRENT");
+  const completed = classification.subGoals.filter((subGoal) => subGoal.status === "COMPLETED");
   const sections: string[] = [];
   if (current.length > 0) {
-    sections.push(`[Current Threads]\n${current.map(
-      (thread, index) => `${index + 1}. ${thread.label} — ${thread.note} (recall: ${thread.recallCondition} → ${thread.ref})`,
+    sections.push(`[Current Subgoals]\n${current.map(
+      (subGoal, index) => `${index + 1}. ${subGoal.label} — ${subGoal.note} (recall: ${subGoal.recallCondition} → ${subGoal.ref})`,
     ).join("\n")}`);
   }
   if (completed.length > 0) {
-    sections.push(`[Completed Threads]\n${completed.map(
-      (thread) => `- ${thread.label} — ${thread.note} (recall: ${thread.recallCondition} → ${thread.ref})`,
+    sections.push(`[Completed Subgoals]\n${completed.map(
+      (subGoal) => `- ${subGoal.label} — ${subGoal.note} (recall: ${subGoal.recallCondition} → ${subGoal.ref})`,
     ).join("\n")}`);
   }
   return sections.join("\n\n");
@@ -221,7 +221,7 @@ export const renderModelReferenceSummary = (
   const parts = [
     classification.mvs,
     classification.overarching ? `[Overarching]\n${classification.overarching}` : "",
-    renderThreads(classification),
+    renderSubGoals(classification),
     renderKeepSections(orderedKeep),
     options.includeRetrievable ? renderRetrievableIndex(classification) : "",
   ].filter(Boolean);
