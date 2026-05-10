@@ -7,8 +7,6 @@
  * compact Tier 1 active prompt with actionable REF index.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { convertToLlm } from "@mariozechner/pi-coding-agent";
 import { normalize } from "../core/normalize";
 import { filterNoise } from "../core/filter-noise";
 import { buildSections } from "../core/build-sections";
@@ -17,11 +15,14 @@ import { chunkCompactionState } from "../core/chunk-model";
 import { mockClassify } from "../core/mock-classifier";
 import { realClassify } from "../core/classifier";
 import { inlineSmallRefs } from "../core/classifier";
+import {
+  extractKeepChunksFromSummary,
+  extractKeepIdsFromSummary,
+  mergePriorChunks,
+  renderModelReferenceSummary,
+} from "../core/model-reference-stitch";
 import type { PiVccSettings } from "../core/settings";
 
-const RECALL_NOTE =
-  "Use `vcc_recall` to search for prior work, decisions, and context from before this summary. " +
-  "Do not redo work already completed.";
 
 /**
  * Build the compacted summary using the model-reference approach.
@@ -30,6 +31,7 @@ const RECALL_NOTE =
 export const compactWithModelReference = async (
   messages: any[],
   settings: PiVccSettings,
+  options: { previousSummary?: string } = {},
 ): Promise<{ summary: string; stats: { classifierMs: number } }> => {
   const start = performance.now();
 
@@ -39,8 +41,12 @@ export const compactWithModelReference = async (
   const sectionData = buildSections({ blocks: filtered });
   const state = buildCompactionState(sectionData);
 
-  // 2. Chunk the state
-  const chunks = chunkCompactionState(state);
+  // 2. Chunk the state and carry forward previous KEEP chunks so follow-up
+  // compactions do not lose still-relevant active context due to fresh ID reuse.
+  const chunks = mergePriorChunks(
+    chunkCompactionState(state),
+    extractKeepChunksFromSummary(options.previousSummary),
+  );
 
   // 3. Classify: prefer Pi auth, then env var, fall back to mock
   let classification: any;
@@ -80,43 +86,10 @@ export const compactWithModelReference = async (
     classification = mockClassify(chunks, messages.length);
   }
 
-  // 4. Assemble Tier 1 summary
-  const parts: string[] = [];
-  
-  // MVS paragraph
-  parts.push(classification.mvs);
-
-  // OVERARCHING
-  if (classification.overarching) {
-    parts.push(`[Overarching]\n${classification.overarching}`);
-  }
-
-  // SUBGOALS
-  if (classification.subGoals && classification.subGoals.length > 0) {
-    const lines = classification.subGoals.map(
-      (sg: any) => `${sg.status}: ${sg.label}`,
-    );
-    parts.push(`[Sub-goals]\n${lines.join("\n")}`);
-  }
-
-  // REF index
-  const refLines: string[] = [];
-  for (const ref of classification.refs || []) {
-    refLines.push(`- ${ref.summary}`);
-  }
-  for (const bundle of classification.bundles || []) {
-    refLines.push(
-      `- [${bundle.label}] ${bundle.recallCondition} (${bundle.chunkIds.length} chunks, bundle:${bundle.id})`,
-    );
-  }
-  if (refLines.length > 0) {
-    parts.push(`[Retrievable]\n${refLines.slice(0, 10).join("\n")}`);
-  }
-
-  // Recall note
-  parts.push(RECALL_NOTE);
-
-  const summary = parts.filter(Boolean).join("\n\n");
+  // 4. Assemble Tier 1 summary from ordered KEEP chunks plus addressable REF index.
+  const summary = renderModelReferenceSummary(classification, chunks, {
+    previousKeepIds: extractKeepIdsFromSummary(options.previousSummary),
+  });
   const elapsed = performance.now() - start;
 
   return {

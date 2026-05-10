@@ -13,6 +13,7 @@ export type ChunkKind =
   | "scope"
   | "recent-scope"
   | "file"
+  | "read-context"
   | "commit"
   | "recent-commit"
   | "evidence"
@@ -59,6 +60,7 @@ export const chunkCompactionState = (state: CompactionState): CompactionChunk[] 
   items("scope", "currentScope", state.current.currentScope);
   items("recent-scope", "recentScope", state.current.recentScopeUpdates);
   items("file", "files", state.current.filesAndChanges);
+  items("read-context", "readContext", state.current.readContext);
   items("commit", "commits", state.current.commits);
   items("recent-commit", "recentCommits", state.current.recentCommits);
   items("evidence", "evidence", state.current.evidenceHandles);

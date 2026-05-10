@@ -249,6 +249,7 @@ export const inlineSmallRefs = (
       case "preference": return 160;
       case "evidence": return 140;
       case "file": return 120; // file paths are usually short, always inline
+      case "read-context": return 180;
       case "transcript-line": return 100;
       default: return 120;
     }

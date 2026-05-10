@@ -265,7 +265,9 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       : config.strategy;
 
     if (effectiveStrategy === "model-reference") {
-      const mrcResult = await compactWithModelReference(messages, config);
+      const mrcResult = await compactWithModelReference(messages, config, {
+        previousSummary: preparation.previousSummary,
+      });
       const summary = mrcResult.summary;
       dbg(config, {
         strategy: "model-reference",

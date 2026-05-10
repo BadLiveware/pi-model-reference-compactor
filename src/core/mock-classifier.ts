@@ -26,6 +26,10 @@ export interface MockModelConfig {
 }
 
 const SCORE = {
+  CURRENT_SCOPE: 7,
+  ACTIVE_GOAL: 6,
+  CONSTRAINT: 6,
+  READ_CONTEXT: 5,
   FILE_PATH: 4,
   COMMIT_HASH: 4,
   ERROR_SIGNATURE: 4,
@@ -43,6 +47,26 @@ const scoreChunk = (chunk: CompactionChunk, needles: string[]): number => {
   // Needles always score high
   for (const needle of needles) {
     if (text.includes(needle.toLowerCase())) return 8;
+  }
+
+  if (chunk.kind === "scope" || chunk.kind === "recent-scope" || chunk.kind === "outstanding-context") {
+    return SCORE.CURRENT_SCOPE;
+  }
+
+  if (chunk.kind === "goal") {
+    return SCORE.ACTIVE_GOAL;
+  }
+
+  if (/\b(hard constraint|constraint|do not change|must not|without changing|unchanged|preserve|never use|do not paste|without rereading)\b/i.test(text)) {
+    return SCORE.CONSTRAINT;
+  }
+
+  if (chunk.kind === "transcript-line" && /\b(next|verify|bounded|remains bounded|continue|rerun|document)\b/i.test(text)) {
+    return SCORE.CURRENT_SCOPE;
+  }
+
+  if (chunk.kind === "read-context" && /\b(createRequire|register[A-Z]\w*|supports\w+|handler|schema|strategy|compactor)\b/i.test(text)) {
+    return SCORE.READ_CONTEXT;
   }
 
   // File paths
@@ -102,7 +126,7 @@ const makeRefSummary = (chunk: CompactionChunk): string => {
 
 const makeMVS = (keepChunks: CompactionChunk[], messageCount: number): string => {
   const goals = keepChunks.filter((c) => c.kind === "goal").map((c) => c.text);
-  const files = keepChunks.filter((c) => c.kind === "file" || c.kind === "evidence").slice(0, 3);
+  const files = keepChunks.filter((c) => c.kind === "file" || c.kind === "read-context" || c.kind === "evidence").slice(0, 3);
   const commits = keepChunks.filter((c) => c.kind === "commit" || c.kind === "recent-commit").slice(0, 2);
 
   const parts: string[] = [];
