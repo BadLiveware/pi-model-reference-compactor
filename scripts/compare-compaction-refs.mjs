@@ -88,7 +88,7 @@ const cacheFailures = (cycle) => {
   const boundary = cacheBoundaries[cycle.caseId];
   if (!boundary || cycle.cycle <= 1) return 0;
   let count = 0;
-  if (cycle.firstChangedPromptLayer && !boundary.allowedFirstChangedLayers.includes(cycle.firstChangedPromptLayer)) count += 1;
+  if (!cycle.firstChangedPromptLayer || !boundary.allowedFirstChangedLayers.includes(cycle.firstChangedPromptLayer)) count += 1;
   if ((cycle.stablePrefixTokens ?? 0) < boundary.minStablePrefixTokens) count += 1;
   for (const [layer, maxSize] of Object.entries(boundary.maxPromptLayerSizes ?? {})) {
     if ((cycle.promptLayerSizes?.[layer] ?? 0) > maxSize) count += 1;
