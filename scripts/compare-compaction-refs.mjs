@@ -82,101 +82,13 @@ const correctnessFailures = (cycle) => [
   ...(cycle.leakedActiveAbsentTerms ?? []),
 ].length;
 
-// Keep in sync with CACHE_BOUNDARIES in bench/compaction/offline-runner.ts.
-// This script compares older refs whose JSONL rows may not include cache gate
-// details, so it keeps a local copy for cross-ref reports.
-const cacheBoundaries = {
-  "cache-bust-volatile-next-step": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Outstanding Context",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 90,
-  },
-  "cache-bust-evidence-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Evidence Handles",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-  },
-  "cache-bust-scope-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Scope Updates",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-  },
-  "cache-bust-mutable-tail-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Scope Updates",
-      "Pi MRC Recent User Preferences",
-      "Pi MRC Recent Evidence Handles",
-      "Pi MRC Outstanding Context",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 140,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Scope Updates": 420,
-      "Pi MRC Recent User Preferences": 360,
-      "Pi MRC Recent Evidence Handles": 260,
-    },
-  },
-  "cache-bust-commit-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Commits",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 115,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Commits": 520,
-    },
-  },
-  "cache-bust-long-evidence-line": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Evidence Handles",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 105,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Evidence Handles": 260,
-    },
-  },
-  "cache-bust-long-scope-line": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Scope Updates",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Scope Updates": 300,
-    },
-  },
-  "cache-bust-long-preference-line": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent User Preferences",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent User Preferences": 300,
-    },
-  },
-};
+const cacheBoundaries = JSON.parse(readFileSync(resolve(repoRoot, "bench/compaction/cache-boundaries.json"), "utf8"));
 
 const cacheFailures = (cycle) => {
   const boundary = cacheBoundaries[cycle.caseId];
   if (!boundary || cycle.cycle <= 1) return 0;
   let count = 0;
-  if (!cycle.firstChangedPromptLayer || !boundary.allowedFirstChangedLayers.includes(cycle.firstChangedPromptLayer)) count += 1;
+  if (cycle.firstChangedPromptLayer && !boundary.allowedFirstChangedLayers.includes(cycle.firstChangedPromptLayer)) count += 1;
   if ((cycle.stablePrefixTokens ?? 0) < boundary.minStablePrefixTokens) count += 1;
   for (const [layer, maxSize] of Object.entries(boundary.maxPromptLayerSizes ?? {})) {
     if ((cycle.promptLayerSizes?.[layer] ?? 0) > maxSize) count += 1;

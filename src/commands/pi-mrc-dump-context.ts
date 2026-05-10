@@ -3,18 +3,20 @@
  *
  * Extracts a structured context guide from the current session JSONL
  * without triggering any compaction. Writes Markdown by default;
- * supports --raw for JSONL dump and --summary for inline display.
+ * supports --raw for session JSONL, --raw-context for the captured prompt payload,
+ * and --summary for inline display.
  *
  * Usage:
  *   /pi-mrc-dump-context                          → writes to /tmp/pi-mrc-context-guide.md
  *   /pi-mrc-dump-context /path/to/output.md       → writes to specified path
  *   /pi-mrc-dump-context --raw                    → dumps raw active branch as JSONL
  *   /pi-mrc-dump-context --raw /path/to/out.jsonl → raw JSONL to specified path
- *   /pi-mrc-dump-context --summary               → displays extracted context inline
+ *   /pi-mrc-dump-context --raw-context            → dumps latest captured prompt context
+ *   /pi-mrc-dump-context --summary                → displays extracted context inline
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { statSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { statSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { dirname } from "path";
 import {
   extractContext,
@@ -46,7 +48,7 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
         .filter((arg) => arg !== "--raw-context" && arg !== "--raw" && arg !== "--summary")
         .join(" ");
 
-      // --raw-context: dump the real context buffer as a formatted document
+      // --raw-context: dump just the latest real context buffer payload.
       if (isRawContext) {
         // Look up buffer for this session
         const { readContextBuffer, listBufferedSessions } = await import("../core/context-buffer");
@@ -67,40 +69,12 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
           return;
         }
 
-        // Format messages as a readable context document
-        const lines: string[] = [];
-        lines.push(`# Real Context Dump`);
-        lines.push(`Captured: ${latest.timestamp}`);
-        lines.push(`${messages.length} messages`);
-        lines.push("");
-        for (const m of messages) {
-          const role = (m as any).role;
-          if (role === "system") continue;
-          let text = "";
-          if (role === "compactionSummary" || role === "compaction_summary") {
-            text = (m as any).summary || "";
-          } else {
-            const content = (m as any).content;
-            if (typeof content === "string") text = content;
-            else if (Array.isArray(content)) {
-              text = content
-                .filter((b: any) => b.type === "text")
-                .map((b: any) => b.text || "")
-                .join(" ");
-            }
-          }
-          if (!text.trim()) continue;
-          const prefix = role === "user" ? "## USER" : role === "assistant" ? "### assistant" : `[${role}]`;
-          const truncated = text.length > 500 ? text.substring(0, 500) + "..." : text;
-          lines.push(`${prefix}\n${truncated}\n`);
-        }
-
-        const outPath = pathArg || `/tmp/pi-mrc-raw-context-${Date.now()}.txt`;
+        const outPath = pathArg || `/tmp/pi-mrc-raw-context-${Date.now()}.json`;
         const dir = dirname(outPath);
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        writeFileSync(outPath, lines.join("\n"));
+        writeFileSync(outPath, JSON.stringify(messages, null, 2));
         const size = statSync(outPath).size;
-        ctx.ui.notify(`Raw context dumped: ${outPath} (${(size / 1024).toFixed(0)} KB, ${slots.length} buffer slots)`, "info");
+        ctx.ui.notify(`Raw context dumped: ${outPath} (${(size / 1024).toFixed(0)} KB, ${messages.length} messages, ${slots.length} buffer slots)`, "info");
         return;
       }
 

@@ -347,35 +347,3 @@ export const realClassify = async (
     clearTimeout(timeout);
   }
 };
-
-/**
- * Classify chunks using real API with fallback to mock classifier.
- */
-export const classifyWithFallback = async (
-  chunks: CompactionChunk[],
-  messageCount: number,
-  config?: Partial<ClassifierConfig>,
-): Promise<ChunkClassification & { usedMock: boolean }> => {
-  if (config?.apiKey && config?.baseUrl) {
-    try {
-      const fullConfig: ClassifierConfig = {
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        model: config.model || "deepseek-chat",
-        maxTokens: config.maxTokens,
-        timeoutMs: config.timeoutMs,
-      };
-      const result = await realClassify(chunks, messageCount, fullConfig);
-      return { ...result, usedMock: false };
-    } catch (err) {
-      console.error(
-        `Classifier API call failed, falling back to mock: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  // Fallback to mock
-  const { mockClassify } = await import("./mock-classifier");
-  const mockResult = mockClassify(chunks, messageCount);
-  return { ...mockResult, usedMock: true };
-};

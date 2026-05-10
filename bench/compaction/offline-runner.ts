@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import type { Message } from "@mariozechner/pi-ai";
 import { compileWithReport } from "../../src/core/summarize";
@@ -711,92 +714,8 @@ interface CacheBoundary {
   maxPromptLayerSizes?: Record<string, number>;
 }
 
-const CACHE_BOUNDARIES: Record<string, CacheBoundary> = {
-  "cache-bust-volatile-next-step": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Outstanding Context",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 90,
-  },
-  "cache-bust-evidence-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Evidence Handles",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-  },
-  "cache-bust-scope-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Scope Updates",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-  },
-  "cache-bust-mutable-tail-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Scope Updates",
-      "Pi MRC Recent User Preferences",
-      "Pi MRC Recent Evidence Handles",
-      "Pi MRC Outstanding Context",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 140,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Scope Updates": 420,
-      "Pi MRC Recent User Preferences": 360,
-      "Pi MRC Recent Evidence Handles": 260,
-    },
-  },
-  "cache-bust-commit-growth": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Commits",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 115,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Commits": 520,
-    },
-  },
-  "cache-bust-long-evidence-line": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Evidence Handles",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 105,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Evidence Handles": 260,
-    },
-  },
-  "cache-bust-long-scope-line": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent Scope Updates",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent Scope Updates": 300,
-    },
-  },
-  "cache-bust-long-preference-line": {
-    allowedFirstChangedLayers: [
-      "Pi MRC Recent User Preferences",
-      "Pi MRC Brief Transcript",
-      "Kept Raw Tail",
-    ],
-    minStablePrefixTokens: 110,
-    maxPromptLayerSizes: {
-      "Pi MRC Recent User Preferences": 300,
-    },
-  },
-};
+const cacheBoundaryPath = join(fileURLToPath(new URL(".", import.meta.url)), "cache-boundaries.json");
+export const CACHE_BOUNDARIES: Record<string, CacheBoundary> = JSON.parse(readFileSync(cacheBoundaryPath, "utf8"));
 
 export const failedCacheGatesOf = (cycle: CycleMetrics): string[] => {
   const boundary = CACHE_BOUNDARIES[cycle.caseId];
