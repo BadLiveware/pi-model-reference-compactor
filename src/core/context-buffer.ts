@@ -1,11 +1,13 @@
 /**
  * Real context buffer.
  *
- * Hooks Pi's `context` event to capture the actual assembled AgentMessage[]
- * that Pi sends to the model. Stores per-session rotating buffers under
- * /tmp/pi-mrc-context-buffers/<session-hash>.json.
+ * Hooks Pi's `context` event to capture the assembled AgentMessage[] before
+ * provider conversion, and `before_provider_request` to capture the provider
+ * request payload Pi is about to send. Stores per-session rotating buffers
+ * under /tmp/pi-mrc-context-buffers/<session-hash>.json.
  *
- * This gives dump-context.ts real data instead of algorithmic guesswork.
+ * This gives dump-context.ts real extension-boundary data instead of
+ * algorithmic guesswork.
  */
 
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
@@ -20,8 +22,14 @@ interface ContextSlot {
   messages: unknown[];
 }
 
+interface ProviderRequestSlot {
+  timestamp: string;
+  payload: unknown;
+}
+
 interface ContextBuffer {
   slots: ContextSlot[];
+  providerRequestSlots?: ProviderRequestSlot[];
 }
 
 const sessionKey = (sessionFile: string): string => {
@@ -38,9 +46,14 @@ const readBuffer = (sessionFile: string): ContextBuffer => {
     if (!existsSync(path)) return { slots: [] };
     const raw = readFileSync(path, "utf-8");
     const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.slots)) return parsed;
+    if (parsed && Array.isArray(parsed.slots)) {
+      return {
+        slots: parsed.slots,
+        providerRequestSlots: Array.isArray(parsed.providerRequestSlots) ? parsed.providerRequestSlots : [],
+      };
+    }
   } catch {}
-  return { slots: [] };
+  return { slots: [], providerRequestSlots: [] };
 };
 
 const writeBuffer = (sessionFile: string, buffer: ContextBuffer): void => {
@@ -68,6 +81,29 @@ export const pushContextSlot = (
   writeBuffer(sessionFile, buffer);
 };
 
+const toJsonPayload = (value: unknown): unknown =>
+  JSON.parse(JSON.stringify(value));
+
+/**
+ * Push the provider request payload produced after Pi's context-to-provider conversion.
+ */
+export const pushProviderRequestSlot = (
+  sessionFile: string,
+  slot: ProviderRequestSlot,
+): void => {
+  const buffer = readBuffer(sessionFile);
+  const providerRequestSlots = buffer.providerRequestSlots ?? [];
+  try {
+    providerRequestSlots.push({ ...slot, payload: toJsonPayload(slot.payload) });
+  } catch {
+    providerRequestSlots.push({ ...slot, payload: "[pi-mrc: provider payload was not JSON-serializable]" });
+  }
+  while (providerRequestSlots.length > MAX_SLOTS) {
+    providerRequestSlots.shift();
+  }
+  writeBuffer(sessionFile, { ...buffer, providerRequestSlots });
+};
+
 /**
  * Read all buffered context slots for a session (most recent last).
  */
@@ -82,6 +118,23 @@ export const latestContextSlot = (
   sessionFile: string,
 ): ContextSlot | undefined => {
   const slots = readContextBuffer(sessionFile);
+  return slots.length > 0 ? slots[slots.length - 1] : undefined;
+};
+
+/**
+ * Read all buffered provider request payloads for a session (most recent last).
+ */
+export const readProviderRequestBuffer = (sessionFile: string): ProviderRequestSlot[] => {
+  return readBuffer(sessionFile).providerRequestSlots ?? [];
+};
+
+/**
+ * Get the latest provider request payload for a session, or undefined if empty.
+ */
+export const latestProviderRequestSlot = (
+  sessionFile: string,
+): ProviderRequestSlot | undefined => {
+  const slots = readProviderRequestBuffer(sessionFile);
   return slots.length > 0 ? slots[slots.length - 1] : undefined;
 };
 

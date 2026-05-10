@@ -8,18 +8,29 @@ import { registerDumpContextCommand } from "./src/commands/pi-mrc-dump-context";
 import { registerPiMrcControlCommands } from "./src/commands/pi-mrc-control";
 import { registerLookupTool } from "./src/tools/lookup";
 import { registerCompactionReportCard } from "./src/ui/compaction-report-card";
-import { pushContextSlot } from "./src/core/context-buffer";
+import { pushContextSlot, pushProviderRequestSlot } from "./src/core/context-buffer";
 
 export default (pi: ExtensionAPI) => {
   scaffoldSettings();
 
-  // Always buffer real context for dump/mrc use
+  // Always buffer real context for dump/mrc use.
   pi.on("context", (event, ctx) => {
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) return;
     pushContextSlot(sessionFile, {
       timestamp: new Date().toISOString(),
       messages: event.messages as unknown[],
+    });
+  });
+
+  // Also buffer the final provider payload so users can audit exactly what Pi
+  // sends after context conversion and provider shaping.
+  pi.on("before_provider_request", (event, ctx) => {
+    const sessionFile = ctx.sessionManager.getSessionFile();
+    if (!sessionFile) return;
+    pushProviderRequestSlot(sessionFile, {
+      timestamp: new Date().toISOString(),
+      payload: event.payload,
     });
   });
 

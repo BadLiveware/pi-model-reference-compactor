@@ -3,15 +3,16 @@
  *
  * Extracts a structured context guide from the current session JSONL
  * without triggering any compaction. Writes Markdown by default;
- * supports --raw for session JSONL, --raw-context for the captured prompt payload,
- * and --summary for inline display.
+ * supports --raw for session JSONL, --raw-context for Pi AgentMessage context,
+ * --raw-provider for the exact provider request payload, and --summary for inline display.
  *
  * Usage:
  *   /pi-mrc-dump-context                          → writes to /tmp/pi-mrc-context-guide.md
  *   /pi-mrc-dump-context /path/to/output.md       → writes to specified path
  *   /pi-mrc-dump-context --raw                    → dumps raw active branch as JSONL
  *   /pi-mrc-dump-context --raw /path/to/out.jsonl → raw JSONL to specified path
- *   /pi-mrc-dump-context --raw-context            → dumps latest captured prompt context
+ *   /pi-mrc-dump-context --raw-context            → dumps latest captured Pi AgentMessage[] context
+ *   /pi-mrc-dump-context --raw-provider           → dumps latest provider request payload
  *   /pi-mrc-dump-context --summary                → displays extracted context inline
  */
 
@@ -41,14 +42,44 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
       const argv = raw.split(/\s+/).filter(Boolean);
       const hasFlag = (flag: string): boolean => argv.includes(flag);
       const isRawContext = hasFlag("--raw-context");
+      const isRawProvider = hasFlag("--raw-provider") || hasFlag("--raw-request") || hasFlag("--raw-model");
       const isRaw = hasFlag("--raw");
       const isSummary = hasFlag("--summary");
 
       const pathArg = argv
-        .filter((arg) => arg !== "--raw-context" && arg !== "--raw" && arg !== "--summary")
+        .filter((arg) => !["--raw-context", "--raw-provider", "--raw-request", "--raw-model", "--raw", "--summary"].includes(arg))
         .join(" ");
 
-      // --raw-context: dump just the latest real context buffer payload.
+      // --raw-provider: dump exactly the latest provider request payload seen by Pi.
+      if (isRawProvider) {
+        const { readProviderRequestBuffer, listBufferedSessions } = await import("../core/context-buffer");
+        const slots = readProviderRequestBuffer(sessionFile);
+        if (slots.length === 0) {
+          const sessions = listBufferedSessions();
+          if (sessions.length === 0) {
+            ctx.ui.notify("No provider request buffer found. Prompt the agent at least once first.", "warning");
+            return;
+          }
+          ctx.ui.notify(`No provider request buffer for this session. Available: ${sessions.map((s: any) => s.file).join(", ")}`, "warning");
+          return;
+        }
+        const latest = slots[slots.length - 1];
+        const payload = latest?.payload;
+        if (payload === undefined) {
+          ctx.ui.notify("No payload in latest provider request buffer slot.", "warning");
+          return;
+        }
+
+        const outPath = pathArg || `/tmp/pi-mrc-raw-provider-${Date.now()}.json`;
+        const dir = dirname(outPath);
+        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        writeFileSync(outPath, JSON.stringify(payload, null, 2));
+        const size = statSync(outPath).size;
+        ctx.ui.notify(`Raw provider request dumped: ${outPath} (${(size / 1024).toFixed(0)} KB, ${slots.length} buffer slots)`, "info");
+        return;
+      }
+
+      // --raw-context: dump just the latest Pi AgentMessage[] context payload.
       if (isRawContext) {
         // Look up buffer for this session
         const { readContextBuffer, listBufferedSessions } = await import("../core/context-buffer");
