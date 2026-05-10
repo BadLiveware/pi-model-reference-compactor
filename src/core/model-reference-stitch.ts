@@ -1,7 +1,8 @@
 import type { ChunkClassification, CompactionChunk } from "./chunk-model";
 
 export const MODEL_REFERENCE_RECALL_NOTE =
-  "Use `vcc_recall` to search for prior work, decisions, and context from before this summary. " +
+  "Use `vcc_lookup` for ref:* and bundle:* handles from MRC reference notes. " +
+  "Use `vcc_recall` to search broader prior work, decisions, and context. " +
   "Do not redo work already completed.";
 
 const KIND_ORDER: Record<string, number> = {
@@ -193,7 +194,7 @@ export const mergePriorChunks = (
 export const renderModelReferenceSummary = (
   classification: ChunkClassification,
   chunks: CompactionChunk[],
-  options: { previousKeepIds?: Set<string>; includeRecallNote?: boolean } = {},
+  options: { previousKeepIds?: Set<string>; includeRecallNote?: boolean; includeRetrievable?: boolean } = {},
 ): string => {
   const bundledIds = new Set(classification.bundles?.flatMap((bundle) => bundle.chunkIds) ?? []);
   const keepChunks = chunks.filter((chunk) => classification.keepIds.includes(chunk.id) && !bundledIds.has(chunk.id));
@@ -204,7 +205,7 @@ export const renderModelReferenceSummary = (
     classification.overarching ? `[Overarching]\n${classification.overarching}` : "",
     renderSubGoals(classification),
     renderKeepSections(orderedKeep),
-    renderRetrievableIndex(classification),
+    options.includeRetrievable ? renderRetrievableIndex(classification) : "",
   ].filter(Boolean);
 
   if (options.includeRecallNote !== false) {

@@ -10,6 +10,7 @@ import {
   PI_VCC_COMPACTION_REPORT_TYPE,
   type PiVccCompactionReport,
 } from "../core/compaction-report";
+import { isMrcReferenceMessage } from "../core/mrc-reference-journal";
 import type { PiVccCompactionDetails } from "../details";
 
 export const PI_VCC_COMPACT_INSTRUCTION = "__pi_vcc__";
@@ -226,8 +227,9 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     }
 
     const rawAgentMessages = ownCut.messages;
-    const skippedInternalMessageCount = rawAgentMessages.filter(isPiVccReportMessage).length;
-    const agentMessages = rawAgentMessages.filter((message: any) => !isPiVccReportMessage(message));
+    const isInternalMessage = (message: any): boolean => isPiVccReportMessage(message) || isMrcReferenceMessage(message);
+    const skippedInternalMessageCount = rawAgentMessages.filter(isInternalMessage).length;
+    const agentMessages = rawAgentMessages.filter((message: any) => !isInternalMessage(message));
     const firstKeptEntryId = ownCut.firstKeptEntryId;
     const messages = convertToLlm(agentMessages);
 

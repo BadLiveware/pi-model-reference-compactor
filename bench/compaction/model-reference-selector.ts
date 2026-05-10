@@ -25,7 +25,6 @@ import {
   orderKeepChunks,
   renderKeepSections,
   renderModelReferenceSummary,
-  renderRetrievableIndex,
 } from "../../src/core/model-reference-stitch";
 import type { CompactorContext, CompactorResult, LayerSnapshot } from "./offline-runner";
 
@@ -109,7 +108,6 @@ export const createModelReferenceCompactor = (helpers: {
 
     // 7. Render Tier 1 active prompt
     const keepText = renderKeepSections(ordered);
-    const retrievableText = renderRetrievableIndex(classification);
     const activePromptState = renderModelReferenceSummary(classification, chunks, {
       previousKeepIds,
     });
@@ -120,7 +118,6 @@ export const createModelReferenceCompactor = (helpers: {
     const layers: LayerSnapshot[] = [
       { name: "Model-Ref MVS", role: "current", text: classification.mvs },
       { name: "Model-Ref KEEP Chunks", role: "current", text: keepText },
-      ...(retrievableText ? [{ name: "Model-Ref Retrievable", role: "recall" as const, text: retrievableText }] : []),
       { name: "Model-Ref Recall Note", role: "recall", text: MODEL_REFERENCE_RECALL_NOTE },
     ];
 
