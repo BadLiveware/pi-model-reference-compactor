@@ -1,6 +1,6 @@
 # pi-mrc
 
-[![npm](https://img.shields.io/npm/v/@sting8k/pi-mrc)](https://www.npmjs.com/package/@sting8k/pi-mrc)
+This is a fork of `@sting8k/pi-vcc`, currently installed from GitHub or a local clone.
 
 `pi-mrc` is a Model-Reference Compactor for [Pi](https://github.com/badlogic/pi-mono). It compacts conversation history into a small continuation state, stashes recoverable detail behind exact handles, and appends only the latest needed lookup index at the end of the model context.
 
@@ -16,20 +16,24 @@ The goal is not fuzzy transcript search or the shortest possible summary. The go
 
 ## Install
 
+Install this fork directly from GitHub:
+
 ```bash
-pi install npm:@sting8k/pi-mrc
+pi install https://github.com/BadLiveware/pi-model-reference-compactor
 ```
 
-Or from GitHub:
+Or clone the fork and install/use the local checkout:
 
 ```bash
-pi install https://github.com/sting8k/pi-mrc
+git clone https://github.com/BadLiveware/pi-model-reference-compactor.git
+cd pi-model-reference-compactor
+pi install .
 ```
 
-Try without installing:
+For one-off local testing from the checkout:
 
 ```bash
-pi -e https://github.com/sting8k/pi-mrc
+pi -e .
 ```
 
 ## Quick use
