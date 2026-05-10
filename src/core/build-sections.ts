@@ -98,13 +98,12 @@ const readContextScore = (path: string, lines: string[]): number => {
 
 const extractReadContext = (blocks: NormalizedBlock[]): string[] => {
   const readResults: { path: string; lines: string[]; score: number; order: number }[] = [];
-  const pendingReadPaths: string[] = [];
+  const pendingReadPaths: Array<string | undefined> = [];
 
   for (const [index, block] of blocks.entries()) {
     if (block.kind === "tool_call") {
       if (READ_TOOLS.has(block.name)) {
-        const path = extractPath(block.args);
-        if (path) pendingReadPaths.push(path);
+        pendingReadPaths.push(extractPath(block.args));
       }
       continue;
     }
