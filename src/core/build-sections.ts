@@ -108,9 +108,9 @@ const extractReadContext = (blocks: NormalizedBlock[]): string[] => {
       }
       continue;
     }
-    if (block.kind !== "tool_result" || block.isError || !READ_TOOLS.has(block.name)) continue;
+    if (block.kind !== "tool_result" || !READ_TOOLS.has(block.name)) continue;
     const readPath = pendingReadPaths.shift();
-    if (!readPath) continue;
+    if (!readPath || block.isError) continue;
     const lines = importantReadLines(block.text);
     if (lines.length === 0) continue;
     const score = readContextScore(readPath, lines);

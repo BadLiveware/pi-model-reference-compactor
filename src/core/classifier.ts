@@ -170,6 +170,9 @@ const parseClassification = (
         });
         continue;
       }
+      // Malformed subgoal lines with a valid status should be ignored without
+      // ending the section; another valid subgoal may follow.
+      if (/^(CURRENT|UPCOMING|DEFERRED|COMPLETED):/i.test(trimmed)) continue;
       // A non-subgoal line ends SUBGOALS; fall through so this same line can
       // still be parsed as KEEP/REF/BUNDLE/DROP/MVS below.
       inSubgoals = false;

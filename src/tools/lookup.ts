@@ -80,7 +80,7 @@ export const registerLookupTool = (pi: ExtensionAPI) => {
       const refs = collectRefs(ctx.sessionManager);
       const limit = Math.max(1, Math.min(25, params.limit ?? 8));
 
-      if (params.list) {
+      if (params.list && !params.ref?.trim()) {
         const recent = refs.slice(-limit).reverse();
         const text = recent.length > 0
           ? `Recent MRC refs:\n${renderSummary(recent)}`

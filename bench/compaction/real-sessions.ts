@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import type { Message } from "@mariozechner/pi-ai";
 import type { CompactionBenchmarkCase } from "./synthetic-cases";
 
@@ -12,7 +12,7 @@ const walkJsonl = async (dir: string): Promise<SessionFile[]> => {
   const entries = await readdir(dir, { withFileTypes: true });
   const out: SessionFile[] = [];
   for (const entry of entries) {
-    const path = `${dir.replace(/\/$/, "")}/${entry.name}`;
+    const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...await walkJsonl(path));
     } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {

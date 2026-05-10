@@ -25,7 +25,7 @@ export type ChunkKind =
   | "recall";
 
 export interface CompactionChunk {
-  /** Stable ID, e.g. "goal:0", "evidence:2", "transcript:15" */
+  /** Stable ID, e.g. "sessionGoal:0", "evidence:2", "transcript:15" */
   id: string;
   kind: ChunkKind;
   /** Full text content, preserved verbatim when in KEEP tier */

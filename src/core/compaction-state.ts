@@ -212,7 +212,7 @@ export const renderCompactionState = (
     layers.push({ name: "Pi MRC Recall Note", role: "recall", text: state.recall.note });
   }
 
-  const bodyLayers = options.includeRecallNote ? layers : layers.filter((layer) => layer.role !== "recall");
+  const bodyLayers = layers;
   const currentText = bodyLayers.filter((layer) => layer.role === "current").map((layer) => layer.text).join("\n\n");
   const historyText = bodyLayers.filter((layer) => layer.role === "history").map((layer) => layer.text).join("\n\n");
   const recallText = bodyLayers.filter((layer) => layer.role === "recall").map((layer) => layer.text).join("\n\n");

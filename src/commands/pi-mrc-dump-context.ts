@@ -36,15 +36,15 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
       }
 
       const raw = args.trim();
-      const isRaw = raw.includes("--raw");
-      const isRawContext = raw.includes("--raw-context");
-      const isSummary = raw.includes("--summary");
+      const argv = raw.split(/\s+/).filter(Boolean);
+      const hasFlag = (flag: string): boolean => argv.includes(flag);
+      const isRawContext = hasFlag("--raw-context");
+      const isRaw = hasFlag("--raw");
+      const isSummary = hasFlag("--summary");
 
-      const pathArg = raw
-        .replace(/--raw-context/g, "")
-        .replace(/--raw/g, "")
-        .replace(/--summary/g, "")
-        .trim();
+      const pathArg = argv
+        .filter((arg) => arg !== "--raw-context" && arg !== "--raw" && arg !== "--summary")
+        .join(" ");
 
       // --raw-context: dump the real context buffer as a formatted document
       if (isRawContext) {
@@ -104,6 +104,15 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
         return;
       }
 
+      // --raw: dump raw JSONL. This does not require successful context extraction.
+      if (isRaw) {
+        const outPath = pathArg || undefined;
+        const written = dumpRawSessionJsonl(sessionFile, outPath);
+        const size = statSync(written).size;
+        ctx.ui.notify(`Raw session dumped: ${written} (${(size / 1024).toFixed(0)} KB)`, "info");
+        return;
+      }
+
       // Try real context buffer first, fall back to session extraction
       let extracted = extractContextFromBuffer(sessionFile);
       let sourceLabel = "real context buffer";
@@ -123,15 +132,6 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
           content: guide,
           display: true,
         });
-        return;
-      }
-
-      // --raw: dump raw JSONL
-      if (isRaw) {
-        const outPath = pathArg || undefined;
-        const written = dumpRawSessionJsonl(sessionFile, outPath);
-        const size = statSync(written).size;
-        ctx.ui.notify(`Raw session dumped: ${written} (${(size / 1024).toFixed(0)} KB)`, "info");
         return;
       }
 

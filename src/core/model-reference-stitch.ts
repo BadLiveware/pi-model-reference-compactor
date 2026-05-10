@@ -2,7 +2,7 @@ import type { ChunkClassification, CompactionChunk } from "./chunk-model";
 
 export const MODEL_REFERENCE_RECALL_NOTE = [
   "MRC reference handling:",
-  "- `ref:*` handles are internal continuity breadcrumbs, not user-facing output.",
+  "- `ref:*` handles and any legacy `bundle:*` breadcrumbs are internal continuity metadata, not user-facing output.",
   "- `[MRC anchors: ...]` near prior turns exist so future compactions can preserve lookup continuity; ignore them during normal work unless you need hidden context.",
   "- `[MRC refs]` at the end of context lists refs stashed by the latest compaction; use `mrc_lookup` only when needed detail is not visible inline.",
   "- Do not mention, quote, or expose handles to the user unless the user explicitly asks about refs, lookup, or compaction internals.",
