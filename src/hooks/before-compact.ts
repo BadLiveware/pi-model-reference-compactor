@@ -10,7 +10,12 @@ import {
   PI_VCC_COMPACTION_REPORT_TYPE,
   type PiVccCompactionReport,
 } from "../core/compaction-report";
-import { isMrcReferenceMessage } from "../core/mrc-reference-journal";
+import {
+  buildCompactionMrcReferenceIndex,
+  PI_VCC_MRC_ANCHOR_TYPE,
+  PI_VCC_MRC_REFERENCES_TYPE,
+  isMrcReferenceMessage,
+} from "../core/mrc-reference-journal";
 import type { PiVccCompactionDetails } from "../details";
 
 export const PI_VCC_COMPACT_INSTRUCTION = "__pi_vcc__";
@@ -55,8 +60,32 @@ const previewContent = (content: unknown): string => {
 
 interface EntryWithMessage {
   entry: { id: string; type: string };
-  message: { role: string; content: unknown; customType?: string };
+  message: { role: string; content: unknown; customType?: string; display?: boolean; details?: unknown; timestamp?: number };
 }
+
+const messageFromEntry = (entry: any): EntryWithMessage | undefined => {
+  if (entry?.type === "message" && entry.message) {
+    return { entry, message: entry.message };
+  }
+  if (entry?.type === "custom_message") {
+    const includeCustom = entry.customType === PI_VCC_MRC_ANCHOR_TYPE
+      || entry.customType === PI_VCC_MRC_REFERENCES_TYPE
+      || entry.customType === PI_VCC_COMPACTION_REPORT_TYPE;
+    if (!includeCustom) return undefined;
+    return {
+      entry,
+      message: {
+        role: "custom",
+        customType: entry.customType,
+        content: entry.content,
+        display: entry.display,
+        details: entry.details,
+        timestamp: entry.timestamp ? new Date(entry.timestamp).getTime() : undefined,
+      },
+    };
+  }
+  return undefined;
+};
 
 const isPiVccReportMessage = (message: any): boolean =>
   message?.role === "custom" && message?.customType === PI_VCC_COMPACTION_REPORT_TYPE;
@@ -95,9 +124,8 @@ export function buildOwnCut(branchEntries: any[]): OwnCutResult {
     for (let i = lastCompactionIdx + 1; i < branchEntries.length; i++) {
       const e = branchEntries[i];
       if (e.type === "compaction") continue;
-      if (e.type === "message" && e.message) {
-        liveMessages.push({ entry: e, message: e.message });
-      }
+      const message = messageFromEntry(e);
+      if (message) liveMessages.push(message);
     }
   } else {
     let foundKept = !lastKeptId; // if no prior compaction, start collecting immediately
@@ -105,9 +133,8 @@ export function buildOwnCut(branchEntries: any[]): OwnCutResult {
       if (!foundKept && e.id === lastKeptId) foundKept = true;
       if (!foundKept) continue;
       if (e.type === "compaction") continue;
-      if (e.type === "message" && e.message) {
-        liveMessages.push({ entry: e, message: e.message });
-      }
+      const message = messageFromEntry(e);
+      if (message) liveMessages.push(message);
     }
   }
 
@@ -175,7 +202,8 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
         for (let i = lastCompIdx + 1; i < branchEntries.length; i++) {
           const e = (branchEntries as any[])[i];
           if (e.type === "compaction") continue;
-          if (e.type === "message" && e.message) liveRoles.push(e.message.role);
+          const message = messageFromEntry(e);
+          if (message) liveRoles.push(message.message.role);
         }
       } else {
         let foundKept = !lastKeptId;
@@ -183,7 +211,8 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
           if (!foundKept && e.id === lastKeptId) foundKept = true;
           if (!foundKept) continue;
           if (e.type === "compaction") continue;
-          if (e.type === "message" && e.message) liveRoles.push(e.message.role);
+          const message = messageFromEntry(e);
+          if (message) liveRoles.push(message.message.role);
         }
       }
       const userIndices = liveRoles.reduce<number[]>((acc, r, i) => (r === "user" ? (acc.push(i), acc) : acc), []);
@@ -257,6 +286,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     };
 
     const config = settings;
+    const modelReferenceIndex = buildCompactionMrcReferenceIndex(branchEntries as any[], firstKeptEntryId);
 
     // Respect session-level off switch regardless of config
     if (getSessionStrategy() === "off") return;
@@ -302,6 +332,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
               skippedInternalMessageCount,
               classifierMs: mrcResult.stats.classifierMs,
             },
+            ...(modelReferenceIndex ? { modelReferenceIndex } : {}),
           },
         },
       };
@@ -357,6 +388,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       sourceMessageCount: agentMessages.length,
       previousSummaryUsed: Boolean(preparation.previousSummary),
       report,
+      ...(modelReferenceIndex ? { modelReferenceIndex } : {}),
     };
 
     lastCompactWasPiVcc = isPiVcc;

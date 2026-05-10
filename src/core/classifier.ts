@@ -46,13 +46,21 @@ Classification rules:
 
 DECISION PRINCIPLE: For each chunk, ask "Would a new agent need this to make its NEXT tool call or file edit?" If yes → KEEP. If it might help later but not now → REF. If no agent would ever need it → DROP.
 
+SOURCE RECOVERABILITY RULE: Repository source files are cheap, authoritative, and rereadable.
+- Do NOT KEEP or REF full source snippets, function bodies, type bodies, or config bodies when a path/symbol/line hint lets the agent reread the source.
+- For source-derived context, preserve only minimal locators: file path, symbol/function/class/type name, optional line hint, and why it matters.
+- DROP source body details that are easy to recover with read/rg/code-intel.
+- KEEP source-derived details only when they are not easily recoverable: uncommitted/deleted edits not present in files, generated/transient output, exact errors, benchmark results, user decisions, constraints, or non-obvious investigation conclusions.
+- Prefer conversation-only state over source-visible state.
+
 - KEEP: ONLY what is directly actionable for the IMMEDIATE next step. A new agent reading only KEEP chunks should know: 1) what to work on, 2) which files to touch, 3) what constraints are active, 4) what was just decided. If you can't explain why a chunk would directly affect the next read/edit/bash call, put it in REF.
-  Priority: user's last explicit decision > currently edited files > active constraints > current goal > recent evidence. Do NOT keep: old-phase goals, review meta-guidelines, generic evidence without identifiers, repeated goal variants.
+  Priority: user's last explicit decision > currently edited files > active constraints > current goal > recent evidence. Do NOT keep: old-phase goals, review meta-guidelines, generic evidence without identifiers, repeated goal variants, rereadable source bodies.
 
 - REF: Context an agent might need if the conversation returns to a topic. Write "Recall if <trigger condition>" so the agent knows WHEN to retrieve this.
   INLINING RULE: If the chunk content is shorter than ~120 chars — shorter than or close to the recall condition you would write — just KEEP it instead. Don't make the agent recall something it could just read.
+  RECOVERABLE SOURCE RULE: if the full content is in a repository file, the REF summary should be a locator/trigger (path + symbol + why), not a paraphrase of the source body.
 
-- DROP: Fluff, status updates, duplicates, greetings, stale metadata.
+- DROP: Fluff, status updates, duplicates, greetings, stale metadata, and source-visible details that can be reread from a path/symbol locator.
 
 KEEP BUDGET: Target ~800-1,500 characters of KEEP output total (roughly 15-25 chunks depending on size). If you exceed the character budget, move lowest-priority items to REF. Prefer keeping 10 high-signal chunks over 25 low-signal ones.
 

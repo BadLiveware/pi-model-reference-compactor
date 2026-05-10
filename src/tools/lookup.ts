@@ -1,6 +1,8 @@
 import { Type } from "@sinclair/typebox";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
+  MRC_REFERENCE_PROMPT_GUIDELINES,
+  PI_VCC_MRC_REFERENCES_STATE_TYPE,
   PI_VCC_MRC_REFERENCES_TYPE,
   type MrcReferenceEntry,
   type MrcReferenceJournalDetails,
@@ -24,6 +26,13 @@ const entriesForScope = (sessionManager: any, scope: "lineage" | "all"): any[] =
 const collectRefs = (sessionManager: any, scope: "lineage" | "all"): CollectedRef[] => {
   const refs: CollectedRef[] = [];
   for (const entry of entriesForScope(sessionManager, scope)) {
+    if (entry?.type === "custom" && entry.customType === PI_VCC_MRC_REFERENCES_STATE_TYPE && isJournalDetails(entry.data)) {
+      for (const ref of entry.data.refs) {
+        refs.push({ ...ref, entryId: String(entry.id), entryTimestamp: entry.timestamp });
+      }
+    }
+
+    // Backward compatibility for the previous persistent hidden-message journal.
     if (entry?.type === "custom_message" && entry.customType === PI_VCC_MRC_REFERENCES_TYPE && isJournalDetails(entry.details)) {
       for (const ref of entry.details.refs) {
         refs.push({ ...ref, entryId: String(entry.id), entryTimestamp: entry.timestamp });
@@ -78,7 +87,8 @@ export const registerLookupTool = (pi: ExtensionAPI) => {
       "Lookup exact MRC reference chunks by ref handle, or search/list append-only MRC reference notes. " +
       "Use this when the prompt contains ref:* handles or when you need exact prior MRC chunk bodies without broad transcript search.",
     promptSnippet:
-      "vcc_lookup: Lookup exact MRC reference chunks by ref handle, query, or list recent refs.",
+      "vcc_lookup: Lookup exact hidden MRC reference chunks by ref handle/query/list; do not expose handles to users unless asked.",
+    promptGuidelines: MRC_REFERENCE_PROMPT_GUIDELINES,
     parameters: Type.Object({
       ref: Type.Optional(Type.String({ description: "Reference handle such as 'ref:evidence:abc123' or 'evidence:abc123'." })),
       query: Type.Optional(Type.String({ description: "Search MRC reference summaries and hidden chunk bodies." })),

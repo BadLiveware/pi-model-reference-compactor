@@ -1,9 +1,15 @@
 import type { ChunkClassification, CompactionChunk } from "./chunk-model";
 
-export const MODEL_REFERENCE_RECALL_NOTE =
-  "Use `vcc_lookup` for ref:* and bundle:* handles from MRC reference notes. " +
-  "Use `vcc_recall` to search broader prior work, decisions, and context. " +
-  "Do not redo work already completed.";
+export const MODEL_REFERENCE_RECALL_NOTE = [
+  "MRC reference handling:",
+  "- `ref:*` and `bundle:*` handles are internal continuity breadcrumbs, not user-facing output.",
+  "- `[MRC anchors: ...]` near prior turns exist so future compactions can preserve lookup continuity; ignore them during normal work unless you need hidden context.",
+  "- `[MRC refs]` at the end of context lists refs stashed by the latest compaction; use `vcc_lookup` only when needed detail is not visible inline.",
+  "- Do not mention, quote, or expose handles to the user unless the user explicitly asks about refs, lookup, or compaction internals.",
+  "- A handle is not evidence by itself; inspect it with `vcc_lookup` before relying on hidden contents.",
+  "- Source refs are locators, not authoritative code bodies; reread repository files/symbols for current source.",
+  "Use `vcc_recall` for broader historical search. Do not redo work already completed.",
+].join("\n");
 
 const KIND_ORDER: Record<string, number> = {
   goal: 0,
