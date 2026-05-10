@@ -20,7 +20,7 @@ export const capBrief = (text: string): string => {
 };
 
 export const RECALL_NOTE =
-  "Use exact MRC handles when available. Broad/fuzzy transcript search is outside pi-mrc. " +
+  "Use exact reference handles when available to recover prior context. " +
   "Do not redo work already completed.";
 
 export const formatSummary = (data: SectionData): string => {

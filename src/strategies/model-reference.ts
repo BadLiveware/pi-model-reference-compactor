@@ -31,7 +31,7 @@ export const compactWithModelReference = async (
   messages: any[],
   settings: PiMrcSettings,
   options: { previousSummary?: string } = {},
-): Promise<{ summary: string; stats: { classifierMs: number } }> => {
+): Promise<{ summary: string; stats: { totalMs: number } }> => {
   const start = performance.now();
 
   // 1. Build compaction state from messages
@@ -62,7 +62,11 @@ export const compactWithModelReference = async (
       const authPath = join(homedir(), ".pi", "agent", "auth.json");
       const auth = JSON.parse(readFileSync(authPath, "utf-8"));
       apiKey = auth?.deepseek?.key || auth?.deepseek?.apiKey;
-    } catch {}
+    } catch (err) {
+      if (settings.debug) {
+        console.error(`Unable to read Pi auth for MRC classifier: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
   }
 
   if (apiKey) {
@@ -93,6 +97,6 @@ export const compactWithModelReference = async (
 
   return {
     summary,
-    stats: { classifierMs: elapsed },
+    stats: { totalMs: elapsed },
   };
 };

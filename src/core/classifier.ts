@@ -170,11 +170,9 @@ const parseClassification = (
         });
         continue;
       }
-      // Empty line or non-matching line ends SUBGOALS section
-      if (!trimmed.match(/^(CURRENT|UPCOMING|DEFERRED|COMPLETED):/i)) {
-        inSubgoals = false;
-      }
-      continue;
+      // A non-subgoal line ends SUBGOALS; fall through so this same line can
+      // still be parsed as KEEP/REF/BUNDLE/DROP/MVS below.
+      inSubgoals = false;
     }
 
     const overarchingMatch = trimmed.match(/^OVERARCHING:\s*(.+)/i);

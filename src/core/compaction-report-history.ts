@@ -31,7 +31,9 @@ export const isPiMrcCompactionReport = (value: unknown): value is PiMrcCompactio
     && report.version === 1
     && Array.isArray(report.sections)
     && typeof report.sourceMessageCount === "number"
-    && typeof report.tokensBefore === "number";
+    && typeof report.keptMessageCount === "number"
+    && typeof report.tokensBefore === "number"
+    && typeof report.summaryChars === "number";
 };
 
 const isPiMrcDetails = (value: unknown): value is PiMrcCompactionDetails =>

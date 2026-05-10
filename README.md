@@ -226,7 +226,7 @@ After pi-mrc compacts, it emits a report card with:
 
 - source and kept message counts,
 - skipped internal message counts,
-- summary size and classifier timing,
+- summary size and total MRC compaction timing,
 - compaction details containing the hidden `modelReferenceIndex` stash.
 
 Artifacts are written under `/tmp/pi-mrc-reports`.

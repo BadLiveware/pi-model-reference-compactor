@@ -74,23 +74,19 @@ export interface PiMrcCompactionReport {
   warnings: string[];
 }
 
-const STABLE_CURRENT_SECTIONS = new Set<string>([
-  "Session Goal",
-  "Files And Changes",
-  "Commits",
-  "Evidence Handles",
-  "User Preferences",
-  "Current Scope",
-]);
-
-const RECENT_VOLATILE_SECTIONS = new Set<string>([
+const RECENT_VOLATILE_SECTION_TITLES = [
   "Recent Read Context",
   "Recent Commits",
   "Recent Scope Updates",
   "Recent User Preferences",
   "Recent Evidence Handles",
   "Outstanding Context",
-]);
+] as const satisfies readonly CurrentSectionName[];
+
+const RECENT_VOLATILE_SECTIONS = new Set<string>(RECENT_VOLATILE_SECTION_TITLES);
+const STABLE_CURRENT_SECTIONS = new Set<string>(
+  CURRENT_SECTION_ORDER.filter((title) => !RECENT_VOLATILE_SECTIONS.has(title)),
+);
 
 const titleOfLayer = (name: string): string =>
   name.startsWith("Pi MRC ") ? name.slice("Pi MRC ".length) : name;
@@ -167,9 +163,11 @@ const previewOf = (layer: CompiledSummaryLayer): string[] =>
     .slice(0, 2)
     .map((line) => line.length > 140 ? `${line.slice(0, 137)}...` : line);
 
+const limitOf = (title: string): number | undefined =>
+  isCurrentSectionName(title) ? RECENT_SECTION_ITEM_LIMITS[title] ?? CURRENT_SECTION_ITEM_LIMITS[title] : undefined;
+
 const capOf = (title: string, itemCount: number): CompactionReportCap | undefined => {
-  if (!isCurrentSectionName(title)) return undefined;
-  const limit = RECENT_SECTION_ITEM_LIMITS[title] ?? CURRENT_SECTION_ITEM_LIMITS[title];
+  const limit = limitOf(title);
   if (!limit || itemCount <= limit) return undefined;
   return {
     section: title,
@@ -196,7 +194,7 @@ export const buildCompactionReport = (input: BuildCompactionReportInput): PiMrcC
       itemCount,
       renderedItemCount,
       chars: layer.text.length,
-      limit: isCurrentSectionName(title) ? RECENT_SECTION_ITEM_LIMITS[title] ?? CURRENT_SECTION_ITEM_LIMITS[title] : undefined,
+      limit: limitOf(title),
       capped,
       reason: reasonOf(policy),
       preview: previewOf(layer),

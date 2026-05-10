@@ -210,7 +210,7 @@ const markdownReport = ({ baselineRows, headRows, baselinePath, headPath }) => {
       || cacheFailures(baselineRow) !== cacheFailures(headRow))
     .slice(0, 20);
   const worstStablePrefixDeltas = pairs
-    .filter(({ baselineRow, headRow }) => baselineRow.stablePrefixTokens !== null && headRow.stablePrefixTokens !== null)
+    .filter(({ baselineRow, headRow }) => baselineRow.stablePrefixTokens != null && headRow.stablePrefixTokens != null)
     .map(({ baselineRow, headRow }) => ({ baselineRow, headRow, delta: headRow.stablePrefixTokens - baselineRow.stablePrefixTokens }))
     .sort((a, b) => a.delta - b.delta)
     .slice(0, 10);
@@ -311,12 +311,15 @@ const markdownReport = ({ baselineRows, headRows, baselinePath, headPath }) => {
   return `${lines.join("\n")}\n`;
 };
 
+const builtImages = [];
+
 const runBench = ({ label, ref, worktree }) => {
   console.error(`Adding ${label} worktree for ${ref}`);
   run("git", ["worktree", "add", "--detach", worktree, ref], { cwd: repoRoot });
-  const image = `pi-vcc-bench-${safeName(label)}-${runId}`.toLowerCase();
+  const image = `pi-mrc-bench-${safeName(label)}-${runId}`.toLowerCase();
   console.error(`Building ${image}`);
   run("docker", ["build", "-t", image, "."], { cwd: worktree });
+  builtImages.push(image);
   const jsonlPath = join(outDir, `${label}.jsonl`);
   const stderrPath = join(outDir, `${label}.stderr.log`);
   const dockerArgs = ["run", "--rm"];
@@ -359,5 +362,8 @@ try {
       }
     }
     rmSync(worktreeRoot, { recursive: true, force: true });
+    for (const image of builtImages) {
+      spawnSync("docker", ["rmi", image], { stdio: "ignore" });
+    }
   }
 }

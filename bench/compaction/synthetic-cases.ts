@@ -560,9 +560,6 @@ export const syntheticCompactionCases: CompactionBenchmarkCase[] = [
       recallTerms: [
         { label: "lunch discussion", term: "lunch", query: "lunch tacos" },
       ],
-      recallTerms: [
-        { label: "lunch discussion", term: "lunch", query: "lunch tacos" },
-      ],
       continuationTerms: [
         { label: "docker preference respected", term: "Docker" },
       ],

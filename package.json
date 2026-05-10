@@ -1,5 +1,5 @@
 {
-  "name": "@sting8k/pi-mrc",
+  "name": "@badliveware/pi-mrc",
   "version": "0.3.12",
   "description": "Model-reference compactor for Pi with exact hidden lookup and cache-aware context stashing",
   "main": "index.ts",

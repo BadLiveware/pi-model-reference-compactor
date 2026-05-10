@@ -25,6 +25,7 @@ const KIND_ORDER: Record<string, number> = {
   "recent-preference": 10,
   "outstanding-context": 11,
   "transcript-line": 12,
+  recall: 13,
 };
 
 const titleOfKind = (kind: string): string =>
@@ -203,7 +204,8 @@ export const renderModelReferenceSummary = (
   options: { previousKeepIds?: Set<string>; includeRecallNote?: boolean; includeRetrievable?: boolean } = {},
 ): string => {
   const bundledIds = new Set(classification.bundles?.flatMap((bundle) => bundle.chunkIds) ?? []);
-  const keepChunks = chunks.filter((chunk) => classification.keepIds.includes(chunk.id) && !bundledIds.has(chunk.id));
+  const keepIds = new Set(classification.keepIds);
+  const keepChunks = chunks.filter((chunk) => keepIds.has(chunk.id) && !bundledIds.has(chunk.id));
   const orderedKeep = orderKeepChunks(keepChunks, options.previousKeepIds ?? new Set());
 
   const parts = [

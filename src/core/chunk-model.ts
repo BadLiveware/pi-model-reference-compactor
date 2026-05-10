@@ -125,5 +125,5 @@ export interface RefIndexEntry {
 
 /** Tier 2 retrievable index */
 export interface RefIndex {
-  entries: Array<{ id: string; summary: string; cycle: number; promotionCount: number }>;
+  entries: RefIndexEntry[];
 }

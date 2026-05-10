@@ -19,6 +19,10 @@ const hasFlag = (name: string): boolean => args.includes(name);
 const realSessionsDir = argValue("--real-sessions-dir");
 const realLimitRaw = argValue("--real-limit");
 const realLimit = realLimitRaw ? Number.parseInt(realLimitRaw, 10) : undefined;
+if (realLimitRaw && (!Number.isInteger(realLimit) || realLimit <= 0)) {
+  console.error(`Invalid --real-limit: ${realLimitRaw}`);
+  process.exit(1);
+}
 const caseFilter = argValue("--case-filter");
 const includeDiagnostics = hasFlag("--show-layer-diff");
 const includeReports = hasFlag("--include-report") || hasFlag("--explain");

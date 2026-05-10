@@ -29,7 +29,10 @@ const sessionEntriesOf = (ctx: any): any[] => {
   try {
     const entries = ctx.sessionManager.getEntries?.();
     if (Array.isArray(entries) && entries.length > 0) return entries;
-  } catch {}
+  } catch {
+    // Defensive fallback: session managers from older Pi versions or partially
+    // loaded sessions can throw; the JSONL parser below still gives a report view.
+  }
   return parseSessionFileEntries(ctx.sessionManager.getSessionFile?.());
 };
 

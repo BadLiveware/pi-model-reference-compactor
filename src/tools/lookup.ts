@@ -80,6 +80,14 @@ export const registerLookupTool = (pi: ExtensionAPI) => {
       const refs = collectRefs(ctx.sessionManager);
       const limit = Math.max(1, Math.min(25, params.limit ?? 8));
 
+      if (params.list) {
+        const recent = refs.slice(-limit).reverse();
+        const text = recent.length > 0
+          ? `Recent MRC refs:\n${renderSummary(recent)}`
+          : "No MRC references found in the active lineage.";
+        return { content: [{ type: "text", text }], details: { matches: recent } };
+      }
+
       if (params.ref?.trim()) {
         const wanted = normalizeRef(params.ref);
         const matches = refs.filter((ref) => ref.id === wanted || `ref:${ref.id}` === params.ref?.trim());

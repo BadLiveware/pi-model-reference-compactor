@@ -70,7 +70,7 @@ const scoreChunk = (chunk: CompactionChunk, needles: string[]): number => {
   }
 
   // File paths
-  if (/\b[\w./-]+\.[\w]{1,6}\b/.test(text) || text.includes("/") && text.length < 120) {
+  if ((/\b[\w./-]+\.[\w]{1,6}\b/.test(text) || text.includes("/")) && text.length < 120) {
     return SCORE.FILE_PATH;
   }
 

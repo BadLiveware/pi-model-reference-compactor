@@ -270,16 +270,7 @@ const termProbe = (terms: ExpectedTerm[] = [], sourceText: string, targetText: s
     };
   });
 
-const leakProbe = (terms: ExpectedTerm[] = [], sourceText: string, targetText: string): TermProbeResult[] =>
-  terms.map((term) => {
-    const applicable = lowerIncludes(sourceText, term.term);
-    return {
-      label: term.label,
-      term: term.term,
-      applicable,
-      found: applicable && lowerIncludes(targetText, term.term),
-    };
-  });
+const leakProbe = termProbe;
 
 const scoreDocument = (doc: string, query: string): number => {
   const terms = query

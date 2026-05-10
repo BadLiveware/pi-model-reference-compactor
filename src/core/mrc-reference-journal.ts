@@ -214,7 +214,7 @@ export const refsFromMrcReferenceEntries = (entries: any[]): MrcReferenceEntry[]
   const refs: MrcReferenceEntry[] = [];
   for (const entry of entries) {
     if (entry?.type === "custom" && entry.customType === PI_MRC_REFERENCES_STATE_TYPE && isJournalDetails(entry.data)) {
-      refs.push(...entry.data.refs);
+      refs.push(...entry.data.refs.filter((ref: any) => ref?.id && ref?.text));
     }
   }
   return refs;

@@ -98,20 +98,24 @@ const readContextScore = (path: string, lines: string[]): number => {
 
 const extractReadContext = (blocks: NormalizedBlock[]): string[] => {
   const readResults: { path: string; lines: string[]; score: number; order: number }[] = [];
-  let pendingReadPath = "";
+  const pendingReadPaths: string[] = [];
 
   for (const [index, block] of blocks.entries()) {
     if (block.kind === "tool_call") {
-      pendingReadPath = READ_TOOLS.has(block.name) ? extractPath(block.args) ?? "" : "";
+      if (READ_TOOLS.has(block.name)) {
+        const path = extractPath(block.args);
+        if (path) pendingReadPaths.push(path);
+      }
       continue;
     }
-    if (block.kind !== "tool_result" || block.isError || !READ_TOOLS.has(block.name) || !pendingReadPath) continue;
+    if (block.kind !== "tool_result" || block.isError || !READ_TOOLS.has(block.name)) continue;
+    const readPath = pendingReadPaths.shift();
+    if (!readPath) continue;
     const lines = importantReadLines(block.text);
     if (lines.length === 0) continue;
-    const score = readContextScore(pendingReadPath, lines);
+    const score = readContextScore(readPath, lines);
     if (score <= 0) continue;
-    readResults.push({ path: pendingReadPath, lines, score, order: index });
-    pendingReadPath = "";
+    readResults.push({ path: readPath, lines, score, order: index });
   }
 
   return readResults

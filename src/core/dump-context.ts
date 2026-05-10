@@ -337,7 +337,7 @@ export const extractContext = (sessionFile: string): ExtractedContext | undefine
               }
               if (/\b(kubectl|helm|chart|namespace|deployment|ingress|CRD|cert-manager|operator)\b/i.test(trimmed)) {
                 const key = trimmed.toLowerCase();
-                if (!keyConfig.includes(trimmed)) {
+                if (!keyConfig.some((item) => item.toLowerCase() === key)) {
                   keyConfig.push(trimmed);
                 }
               }
