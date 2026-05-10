@@ -124,12 +124,12 @@ export const createModelReferenceCompactor = (helpers: {
     const refDocs = [
       ...classification.refs.map((r) => ({
         id: r.id,
-        text: `${r.summary} (use vcc_recall)`,
+        text: `${r.summary} (use mrc_lookup)`,
         source: `model-ref-tier2` as const,
       })),
       ...(classification.bundles ?? []).map((b) => ({
         id: `bundle:${b.id}`,
-        text: `[${b.label}] ${b.recallCondition}. Files: ${b.chunkIds.filter((id) => id.startsWith("F")).length}, Chunks: ${b.chunkIds.length} (use vcc_recall with bundle:${b.id})`,
+        text: `[${b.label}] ${b.recallCondition}. Files: ${b.chunkIds.filter((id) => id.startsWith("F")).length}, Chunks: ${b.chunkIds.length} (use mrc_lookup for listed refs)`,
         source: `model-ref-bundle` as const,
       })),
     ];

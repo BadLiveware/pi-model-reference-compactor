@@ -85,42 +85,42 @@ const correctnessFailures = (cycle) => [
 const cacheBoundaries = {
   "cache-bust-volatile-next-step": {
     allowedFirstChangedLayers: [
-      "Pi VCC Outstanding Context",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Outstanding Context",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 90,
   },
   "cache-bust-evidence-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Evidence Handles",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Evidence Handles",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 110,
   },
   "cache-bust-scope-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Scope Updates",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Scope Updates",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 110,
   },
   "cache-bust-mutable-tail-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Scope Updates",
-      "Pi VCC Recent User Preferences",
-      "Pi VCC Recent Evidence Handles",
-      "Pi VCC Outstanding Context",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Scope Updates",
+      "Pi MRC Recent User Preferences",
+      "Pi MRC Recent Evidence Handles",
+      "Pi MRC Outstanding Context",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 140,
     maxPromptLayerSizes: {
-      "Pi VCC Recent Scope Updates": 420,
-      "Pi VCC Recent User Preferences": 360,
-      "Pi VCC Recent Evidence Handles": 260,
+      "Pi MRC Recent Scope Updates": 420,
+      "Pi MRC Recent User Preferences": 360,
+      "Pi MRC Recent Evidence Handles": 260,
     },
   },
 };
@@ -147,9 +147,9 @@ const fmt = (value, digits = 2) => value === null || value === undefined ? "n/a"
 const signed = (value, digits = 2) => value === null || value === undefined ? "n/a" : `${value >= 0 ? "+" : ""}${Number(value).toFixed(digits)}`;
 
 const RECENT_MUTABLE_LAYERS = [
-  "Pi VCC Recent Scope Updates",
-  "Pi VCC Recent User Preferences",
-  "Pi VCC Recent Evidence Handles",
+  "Pi MRC Recent Scope Updates",
+  "Pi MRC Recent User Preferences",
+  "Pi MRC Recent Evidence Handles",
 ];
 
 const layerRank = (layer) => {
@@ -157,15 +157,15 @@ const layerRank = (layer) => {
   if (layer === "Provider Prefix") return 0;
   if (layer === "Tool Definitions") return 1;
   if (layer === "Project Instructions") return 2;
-  if (layer.startsWith("Pi VCC Session Goal")) return 3;
-  if (layer.startsWith("Pi VCC Files")) return 4;
-  if (layer.startsWith("Pi VCC Commits")) return 5;
-  if (layer.startsWith("Pi VCC Evidence Handles")) return 6;
-  if (layer.startsWith("Pi VCC User Preferences")) return 7;
-  if (layer.startsWith("Pi VCC Current Scope")) return 8;
-  if (layer.startsWith("Pi VCC Recent")) return 9;
-  if (layer.startsWith("Pi VCC Outstanding")) return 10;
-  if (layer.startsWith("Pi VCC Brief")) return 11;
+  if (layer.startsWith("Pi MRC Session Goal")) return 3;
+  if (layer.startsWith("Pi MRC Files")) return 4;
+  if (layer.startsWith("Pi MRC Commits")) return 5;
+  if (layer.startsWith("Pi MRC Evidence Handles")) return 6;
+  if (layer.startsWith("Pi MRC User Preferences")) return 7;
+  if (layer.startsWith("Pi MRC Current Scope")) return 8;
+  if (layer.startsWith("Pi MRC Recent")) return 9;
+  if (layer.startsWith("Pi MRC Outstanding")) return 10;
+  if (layer.startsWith("Pi MRC Brief")) return 11;
   if (layer === "Kept Raw Tail") return 12;
   return 50;
 };

@@ -20,7 +20,7 @@ export const capBrief = (text: string): string => {
 };
 
 export const RECALL_NOTE =
-  "Use `vcc_recall` to search for prior work, decisions, and context from before this summary. " +
+  "Use exact MRC handles when available. Broad/fuzzy transcript search is outside pi-mrc. " +
   "Do not redo work already completed.";
 
 export const formatSummary = (data: SectionData): string => {

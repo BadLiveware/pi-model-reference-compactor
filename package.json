@@ -1,18 +1,18 @@
 {
-  "name": "@sting8k/pi-vcc",
+  "name": "@sting8k/pi-mrc",
   "version": "0.3.12",
-  "description": "Algorithmic conversation compactor for pi - transcript-preserving structured summaries, no LLM calls",
+  "description": "Model-reference compactor for Pi with exact hidden lookup and cache-aware context stashing",
   "main": "index.ts",
   "keywords": [
     "pi-package",
     "pi-extension",
-    "vcc",
+    "mrc",
     "compact",
     "compaction"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sting8k/pi-vcc.git"
+    "url": "git+https://github.com/sting8k/pi-mrc.git"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",

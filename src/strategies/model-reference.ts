@@ -1,8 +1,7 @@
 /**
- * Model-reference compaction strategy for pi-vcc.
+ * Model-reference compaction strategy for pi-mrc.
  *
- * Hooks into Pi's session_before_compact event. Instead of algorithmic extraction
- * (pi-vcc), this strategy calls a cheap LLM to classify conversation chunks into
+ * Hooks into Pi's session_before_compact event. It classifies conversation chunks into
  * KEEP/REF/DROP tiers, orders KEEP chunks for cache stability, and stitches a
  * compact Tier 1 active prompt with actionable REF index.
  */
@@ -21,7 +20,7 @@ import {
   mergePriorChunks,
   renderModelReferenceSummary,
 } from "../core/model-reference-stitch";
-import type { PiVccSettings } from "../core/settings";
+import type { PiMrcSettings } from "../core/settings";
 
 
 /**
@@ -30,7 +29,7 @@ import type { PiVccSettings } from "../core/settings";
  */
 export const compactWithModelReference = async (
   messages: any[],
-  settings: PiVccSettings,
+  settings: PiMrcSettings,
   options: { previousSummary?: string } = {},
 ): Promise<{ summary: string; stats: { classifierMs: number } }> => {
   const start = performance.now();

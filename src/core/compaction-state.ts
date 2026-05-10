@@ -147,7 +147,7 @@ export const renderCurrentSections = (state: CompactionState): CompiledSummaryLa
     .map((title) => ({ title, text: section(title, state.current[stateKeyOf(title)]) }))
     .filter((entry) => entry.text)
     .map((entry) => ({
-      name: `Pi VCC ${entry.title}`,
+      name: `Pi MRC ${entry.title}`,
       role: "current" as const,
       text: entry.text,
     }));
@@ -203,13 +203,13 @@ export const renderCompactionState = (
   ];
   if (state.history.briefTranscript) {
     layers.push({
-      name: "Pi VCC Brief Transcript",
+      name: "Pi MRC Brief Transcript",
       role: "history",
       text: capBrief(state.history.briefTranscript),
     });
   }
   if (options.includeRecallNote && layers.length > 0) {
-    layers.push({ name: "Pi VCC Recall Note", role: "recall", text: state.recall.note });
+    layers.push({ name: "Pi MRC Recall Note", role: "recall", text: state.recall.note });
   }
 
   const bodyLayers = options.includeRecallNote ? layers : layers.filter((layer) => layer.role !== "recall");

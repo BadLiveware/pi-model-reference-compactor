@@ -6,7 +6,7 @@ import { normalize } from "../../src/core/normalize";
 import { renderMessage } from "../../src/core/render-entries";
 import { clip, textOf } from "../../src/core/content";
 import { summarizeToolResultForPrompt } from "../../src/core/tool-result-summary";
-import type { PiVccCompactionReport } from "../../src/core/compaction-report";
+import type { PiMrcCompactionReport } from "../../src/core/compaction-report";
 import { syntheticCompactionCases, type CompactionBenchmarkCase, type ExpectedTerm } from "./synthetic-cases";
 import { createModelReferenceCompactor } from "./model-reference-selector";
 
@@ -37,7 +37,7 @@ export interface CompactorResult {
   activePromptState: string;
   layers: LayerSnapshot[];
   recallCorpus: RecallDocument[];
-  report?: PiVccCompactionReport;
+  report?: PiMrcCompactionReport;
   stats: {
     compactionMs: number;
     estimatedInputTokens?: number;
@@ -117,7 +117,7 @@ export interface CycleMetrics {
   promptLayerSizes: Record<string, number>;
   promptLayerTokenDeltas: Record<string, number>;
   promptLayerDiffs?: PromptLayerDiff[];
-  compactionReport?: PiVccCompactionReport;
+  compactionReport?: PiMrcCompactionReport;
 }
 
 export interface BenchmarkRunResult {
@@ -195,7 +195,7 @@ const simulatedPromptOf = (result: CompactorResult, sourceMessages: Message[]): 
     },
     {
       name: "Tool Definitions",
-      text: "tools: read, bash, edit, write, vcc_recall",
+      text: "tools: read, bash, edit, write, mrc_lookup",
     },
     {
       name: "Project Instructions",
@@ -723,86 +723,86 @@ interface CacheBoundary {
 const CACHE_BOUNDARIES: Record<string, CacheBoundary> = {
   "cache-bust-volatile-next-step": {
     allowedFirstChangedLayers: [
-      "Pi VCC Outstanding Context",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Outstanding Context",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 90,
   },
   "cache-bust-evidence-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Evidence Handles",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Evidence Handles",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 110,
   },
   "cache-bust-scope-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Scope Updates",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Scope Updates",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 110,
   },
   "cache-bust-mutable-tail-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Scope Updates",
-      "Pi VCC Recent User Preferences",
-      "Pi VCC Recent Evidence Handles",
-      "Pi VCC Outstanding Context",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Scope Updates",
+      "Pi MRC Recent User Preferences",
+      "Pi MRC Recent Evidence Handles",
+      "Pi MRC Outstanding Context",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 140,
     maxPromptLayerSizes: {
-      "Pi VCC Recent Scope Updates": 420,
-      "Pi VCC Recent User Preferences": 360,
-      "Pi VCC Recent Evidence Handles": 260,
+      "Pi MRC Recent Scope Updates": 420,
+      "Pi MRC Recent User Preferences": 360,
+      "Pi MRC Recent Evidence Handles": 260,
     },
   },
   "cache-bust-commit-growth": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Commits",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Commits",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 115,
     maxPromptLayerSizes: {
-      "Pi VCC Recent Commits": 520,
+      "Pi MRC Recent Commits": 520,
     },
   },
   "cache-bust-long-evidence-line": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Evidence Handles",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Evidence Handles",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 105,
     maxPromptLayerSizes: {
-      "Pi VCC Recent Evidence Handles": 260,
+      "Pi MRC Recent Evidence Handles": 260,
     },
   },
   "cache-bust-long-scope-line": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent Scope Updates",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent Scope Updates",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 110,
     maxPromptLayerSizes: {
-      "Pi VCC Recent Scope Updates": 300,
+      "Pi MRC Recent Scope Updates": 300,
     },
   },
   "cache-bust-long-preference-line": {
     allowedFirstChangedLayers: [
-      "Pi VCC Recent User Preferences",
-      "Pi VCC Brief Transcript",
+      "Pi MRC Recent User Preferences",
+      "Pi MRC Brief Transcript",
       "Kept Raw Tail",
     ],
     minStablePrefixTokens: 110,
     maxPromptLayerSizes: {
-      "Pi VCC Recent User Preferences": 300,
+      "Pi MRC Recent User Preferences": 300,
     },
   },
 };

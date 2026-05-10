@@ -7,23 +7,21 @@ import { chunkCompactionState, type CompactionChunk } from "./chunk-model";
 import { renderRetrievableIndex } from "./model-reference-stitch";
 import type { ChunkClassification } from "./chunk-model";
 
-// Previous implementation: a persistent rendered ref message. Kept only so old
-// sessions can be filtered/read without breaking lookup.
-export const PI_VCC_MRC_REFERENCES_TYPE = "pi-vcc-mrc-references";
-
 // Hidden, non-context state: full ref bodies live here.
-export const PI_VCC_MRC_REFERENCES_STATE_TYPE = "pi-vcc-mrc-reference-state";
+export const PI_MRC_REFERENCES_STATE_TYPE = "pi-mrc-reference-state";
 
-// Tiny, context-visible anchors: handle-only breadcrumbs near the turn that
-// created the hidden refs, so compaction can preserve handles without bodies.
-export const PI_VCC_MRC_ANCHOR_TYPE = "pi-vcc-mrc-anchor";
+// Context-visible handle-only breadcrumbs near the turn that created hidden refs.
+export const PI_MRC_ANCHOR_TYPE = "pi-mrc-anchor";
+
+// Rendered ephemeral latest-compaction ref suffix. This is not persisted.
+export const PI_MRC_REFERENCES_TYPE = "pi-mrc-references";
 
 export const MRC_REFERENCE_PROMPT_GUIDELINES = [
-  "Treat `ref:*`, `bundle:*`, `[MRC anchors: ...]`, and `[MRC refs]` as internal pi-vcc continuity metadata, not user-facing content.",
+  "Treat `ref:*`, `[MRC anchors: ...]`, and `[MRC refs]` as internal pi-mrc continuity metadata, not user-facing content.",
   "Ignore `[MRC anchors: ...]` during normal work unless you need to recover hidden context; they mainly exist so compaction can preserve lookup handles.",
-  "Use `[MRC refs]` only as a latest-compaction stash index; prefer visible context, and call `vcc_lookup` only when the needed detail is not visible or exact hidden text is required.",
+  "Use `[MRC refs]` only as a latest-compaction stash index; prefer visible context, and call `mrc_lookup` only when the needed detail is not visible or exact hidden text is required.",
   "Do not mention, quote, or expose MRC handles to the user unless the user explicitly asks about refs, lookup, or compaction internals.",
-  "A ref handle is not evidence by itself; inspect it with `vcc_lookup` before relying on its hidden contents.",
+  "A ref handle is not evidence by itself; inspect it with `mrc_lookup` before relying on its hidden contents.",
   "For refs that point at repository source, expect a locator rather than source body; reread the file/symbol for authoritative code.",
 ];
 
@@ -173,7 +171,7 @@ export const renderMrcReferenceJournalContent = (details: MrcReferenceJournalDet
     .replace(/^\[Retrievable\]/, "[MRC refs]")
     .replace(
       "[MRC refs]\n",
-      "[MRC refs]\nInternal latest-compaction stash. Prefer visible context; use vcc_lookup only if needed. Source refs are locators; reread files for code. Do not expose handles unless asked.\n",
+      "[MRC refs]\nInternal latest-compaction stash. Prefer visible context; use mrc_lookup only if needed. Source refs are locators; reread files for code. Do not expose handles unless asked.\n",
     );
 };
 
@@ -193,10 +191,10 @@ const isJournalDetails = (value: any): value is MrcReferenceJournalDetails =>
   value?.version === 1 && Array.isArray(value.refs);
 
 export const isMrcReferenceMessage = (message: any): boolean =>
-  message?.role === "custom" && message?.customType === PI_VCC_MRC_REFERENCES_TYPE;
+  message?.role === "custom" && message?.customType === PI_MRC_REFERENCES_TYPE;
 
 export const isMrcAnchorMessage = (message: any): boolean =>
-  message?.role === "custom" && message?.customType === PI_VCC_MRC_ANCHOR_TYPE;
+  message?.role === "custom" && message?.customType === PI_MRC_ANCHOR_TYPE;
 
 const refsFromCompactionDetails = (entry: any): MrcReferenceEntry[] => {
   const refs = entry?.details?.modelReferenceIndex?.refs;
@@ -215,12 +213,8 @@ export const refsFromLatestCompaction = (entries: any[], limit = DEFAULT_STASH_R
 export const refsFromMrcReferenceEntries = (entries: any[]): MrcReferenceEntry[] => {
   const refs: MrcReferenceEntry[] = [];
   for (const entry of entries) {
-    if (entry?.type === "custom" && entry.customType === PI_VCC_MRC_REFERENCES_STATE_TYPE && isJournalDetails(entry.data)) {
+    if (entry?.type === "custom" && entry.customType === PI_MRC_REFERENCES_STATE_TYPE && isJournalDetails(entry.data)) {
       refs.push(...entry.data.refs);
-    }
-    // Backward compatibility for the earlier persistent-message implementation.
-    if (entry?.type === "custom_message" && entry.customType === PI_VCC_MRC_REFERENCES_TYPE && isJournalDetails(entry.details)) {
-      refs.push(...entry.details.refs);
     }
   }
   return refs;

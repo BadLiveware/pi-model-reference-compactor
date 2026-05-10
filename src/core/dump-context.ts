@@ -448,7 +448,7 @@ export const formatContextGuide = (ctx: ExtractedContext, sessionFile: string): 
  */
 export const writeContextGuide = (ctx: ExtractedContext, sessionFile: string, outputPath?: string): string => {
   const markdown = formatContextGuide(ctx, sessionFile);
-  const out = outputPath ?? `/tmp/pi-vcc-context-guide-${Date.now()}.md`;
+  const out = outputPath ?? `/tmp/pi-mrc-context-guide-${Date.now()}.md`;
   const dir = dirname(out);
   mkdirSync(dir, { recursive: true });
   writeFileSync(out, markdown);
@@ -460,7 +460,7 @@ export const writeContextGuide = (ctx: ExtractedContext, sessionFile: string, ou
  */
 export const dumpRawSessionJsonl = (sessionFile: string, outputPath?: string): string => {
   const entries = parseSessionEntries(sessionFile);
-  const out = outputPath ?? `/tmp/pi-vcc-raw-session-${Date.now()}.jsonl`;
+  const out = outputPath ?? `/tmp/pi-mrc-raw-session-${Date.now()}.jsonl`;
   const dir = dirname(out);
   mkdirSync(dir, { recursive: true });
   const lines = entries.map((e) => JSON.stringify(e.data)).join("\n") + "\n";

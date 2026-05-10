@@ -8,7 +8,7 @@ import {
   type CurrentSectionName,
 } from "./compaction-state";
 
-export const PI_VCC_COMPACTION_REPORT_TYPE = "pi-vcc-compaction-report";
+export const PI_MRC_COMPACTION_REPORT_TYPE = "pi-mrc-compaction-report";
 
 export type CompactionReportSectionPolicy =
   | "stable-current"
@@ -53,8 +53,8 @@ export interface BuildCompactionReportInput {
   summaryText: string;
 }
 
-export interface PiVccCompactionReport {
-  compactor: "pi-vcc";
+export interface PiMrcCompactionReport {
+  compactor: "pi-mrc";
   version: 1;
   sourceMessageCount: number;
   keptMessageCount: number;
@@ -93,7 +93,7 @@ const RECENT_VOLATILE_SECTIONS = new Set<string>([
 ]);
 
 const titleOfLayer = (name: string): string =>
-  name.startsWith("Pi VCC ") ? name.slice("Pi VCC ".length) : name;
+  name.startsWith("Pi MRC ") ? name.slice("Pi MRC ".length) : name;
 
 const isCurrentSectionName = (title: string): title is CurrentSectionName =>
   (CURRENT_SECTION_ORDER as readonly string[]).includes(title);
@@ -179,7 +179,7 @@ const capOf = (title: string, itemCount: number): CompactionReportCap | undefine
   };
 };
 
-export const buildCompactionReport = (input: BuildCompactionReportInput): PiVccCompactionReport => {
+export const buildCompactionReport = (input: BuildCompactionReportInput): PiMrcCompactionReport => {
   const previousByName = new Map(input.previousLayers.map((layer) => [layer.name, layer.text]));
   const sections = input.layers.map((layer): CompactionReportSection => {
     const title = titleOfLayer(layer.name);
@@ -219,7 +219,7 @@ export const buildCompactionReport = (input: BuildCompactionReportInput): PiVccC
   }
 
   return {
-    compactor: "pi-vcc",
+    compactor: "pi-mrc",
     version: 1,
     sourceMessageCount: input.sourceMessageCount,
     keptMessageCount: input.keptMessageCount,
@@ -251,7 +251,7 @@ const formatTokens = (n: number): string => {
 const shortLayerName = (name: string | undefined): string =>
   name ? titleOfLayer(name) : "none";
 
-export const formatCompactionReportSummaryLine = (report: PiVccCompactionReport): string => {
+export const formatCompactionReportSummaryLine = (report: PiMrcCompactionReport): string => {
   const stable = report.previousSummaryUsed
     ? `${report.stableUnchangedCount}/${report.stableSectionCount} stable unchanged`
     : `${plural(report.stableSectionCount, "stable section")}`;
@@ -267,13 +267,13 @@ export const formatCompactionReportSummaryLine = (report: PiVccCompactionReport)
   return `Compacted ${plural(report.sourceMessageCount, "message")} from ~${formatTokens(report.tokensBefore)} tok; kept ${report.keptMessageCount} (~${formatTokens(report.keptTokensEst)} tok); ${stable}; first change: ${firstChange}${caps}${warnings}.`;
 };
 
-export const formatCompactionReportMessageContent = (report: PiVccCompactionReport): string => {
+export const formatCompactionReportMessageContent = (report: PiMrcCompactionReport): string => {
   const lines = [
     formatCompactionReportSummaryLine(report),
-    "Full pi-vcc compaction report is stored on this UI message for inspection.",
+    "Full pi-mrc compaction report is stored on this UI message for inspection.",
   ];
   if (report.skippedInternalMessageCount > 0) {
-    lines.push(`Skipped ${plural(report.skippedInternalMessageCount, "prior pi-vcc report message")} while summarizing.`);
+    lines.push(`Skipped ${plural(report.skippedInternalMessageCount, "prior pi-mrc report message")} while summarizing.`);
   }
   return lines.join("\n");
 };
@@ -296,7 +296,7 @@ const policyLabel = (policy: CompactionReportSectionPolicy): string => {
 };
 
 export const formatCompactionReportCard = (
-  report: PiVccCompactionReport,
+  report: PiMrcCompactionReport,
   options: { expanded?: boolean } = {},
 ): string => {
   if (!options.expanded) return `${formatCompactionReportSummaryLine(report)} Expand for section-level details.`;
@@ -337,7 +337,7 @@ export const formatCompactionReportCard = (
     "",
     "Deep dive",
     "- The full machine-readable report is stored in this message's details and in compaction.details.report.",
-    "- Run /pi-vcc-report for Markdown/JSON artifacts, /pi-vcc-report show for inline detail, or /pi-vcc-report list for older reports.",
+    "- Run /pi-mrc-report for Markdown/JSON artifacts, /pi-mrc-report show for inline detail, or /pi-mrc-report list for older reports.",
   );
 
   return lines.join("\n");

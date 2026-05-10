@@ -6,7 +6,7 @@ ARG BUN_VERSION=1.3.13
 FROM oven/bun:${BUN_VERSION} AS source
 WORKDIR /app
 
-COPY --link package.json README.md ./
+COPY --link package.json README.md index.ts ./
 COPY --link src ./src
 COPY --link bench ./bench
 COPY --link scripts ./scripts

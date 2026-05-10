@@ -4,19 +4,19 @@ import { tmpdir } from "os";
 import {
   formatCompactionReportCard,
   formatCompactionReportSummaryLine,
-  PI_VCC_COMPACTION_REPORT_TYPE,
-  type PiVccCompactionReport,
+  PI_MRC_COMPACTION_REPORT_TYPE,
+  type PiMrcCompactionReport,
 } from "./compaction-report";
-import type { PiVccCompactionDetails } from "../details";
+import type { PiMrcCompactionDetails } from "../details";
 
-export const PI_VCC_REPORT_COMMAND_TYPE = "pi-vcc-report";
+export const PI_MRC_REPORT_COMMAND_TYPE = "pi-mrc-report";
 
 export interface CompactionReportRecord {
   entryId: string;
   entryIds: string[];
   entryType: "compaction" | "custom_message" | "message";
   timestamp?: string;
-  report: PiVccCompactionReport;
+  report: PiMrcCompactionReport;
 }
 
 export interface CompactionReportArtifacts {
@@ -24,18 +24,18 @@ export interface CompactionReportArtifacts {
   jsonPath: string;
 }
 
-export const isPiVccCompactionReport = (value: unknown): value is PiVccCompactionReport => {
+export const isPiMrcCompactionReport = (value: unknown): value is PiMrcCompactionReport => {
   if (typeof value !== "object" || value === null) return false;
-  const report = value as Partial<PiVccCompactionReport>;
-  return report.compactor === "pi-vcc"
+  const report = value as Partial<PiMrcCompactionReport>;
+  return report.compactor === "pi-mrc"
     && report.version === 1
     && Array.isArray(report.sections)
     && typeof report.sourceMessageCount === "number"
     && typeof report.tokensBefore === "number";
 };
 
-const isPiVccDetails = (value: unknown): value is PiVccCompactionDetails =>
-  typeof value === "object" && value !== null && (value as PiVccCompactionDetails).compactor === "pi-vcc";
+const isPiMrcDetails = (value: unknown): value is PiMrcCompactionDetails =>
+  typeof value === "object" && value !== null && (value as PiMrcCompactionDetails).compactor === "pi-mrc";
 
 const recordKeyOf = (record: CompactionReportRecord): string =>
   JSON.stringify({
@@ -51,7 +51,7 @@ export const findCompactionReportRecords = (entries: any[]): CompactionReportRec
   const records: CompactionReportRecord[] = [];
 
   for (const entry of entries) {
-    if (entry?.type === "compaction" && isPiVccDetails(entry.details) && isPiVccCompactionReport(entry.details.report)) {
+    if (entry?.type === "compaction" && isPiMrcDetails(entry.details) && isPiMrcCompactionReport(entry.details.report)) {
       records.push({
         entryId: String(entry.id ?? ""),
         entryIds: [String(entry.id ?? "")],
@@ -63,8 +63,8 @@ export const findCompactionReportRecords = (entries: any[]): CompactionReportRec
     }
 
     if (entry?.type === "custom_message"
-      && entry.customType === PI_VCC_COMPACTION_REPORT_TYPE
-      && isPiVccCompactionReport(entry.details)) {
+      && entry.customType === PI_MRC_COMPACTION_REPORT_TYPE
+      && isPiMrcCompactionReport(entry.details)) {
       records.push({
         entryId: String(entry.id ?? ""),
         entryIds: [String(entry.id ?? "")],
@@ -77,8 +77,8 @@ export const findCompactionReportRecords = (entries: any[]): CompactionReportRec
 
     if (entry?.type === "message"
       && entry.message?.role === "custom"
-      && entry.message?.customType === PI_VCC_COMPACTION_REPORT_TYPE
-      && isPiVccCompactionReport(entry.message?.details)) {
+      && entry.message?.customType === PI_MRC_COMPACTION_REPORT_TYPE
+      && isPiMrcCompactionReport(entry.message?.details)) {
       records.push({
         entryId: String(entry.id ?? ""),
         entryIds: [String(entry.id ?? "")],
@@ -117,9 +117,9 @@ const safeId = (entryId: string): string =>
   entryId.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 80) || "latest";
 
 export const writeCompactionReportArtifacts = (record: CompactionReportRecord): CompactionReportArtifacts => {
-  const dir = join(tmpdir(), "pi-vcc-reports");
+  const dir = join(tmpdir(), "pi-mrc-reports");
   mkdirSync(dir, { recursive: true });
-  const base = `pi-vcc-report-${safeId(record.entryId)}`;
+  const base = `pi-mrc-report-${safeId(record.entryId)}`;
   const markdownPath = join(dir, `${base}.md`);
   const jsonPath = join(dir, `${base}.json`);
 
@@ -129,10 +129,10 @@ export const writeCompactionReportArtifacts = (record: CompactionReportRecord): 
 };
 
 export const formatCompactionReportRecordList = (records: CompactionReportRecord[], limit = 10): string => {
-  if (records.length === 0) return "No pi-vcc compaction reports found in this session.";
+  if (records.length === 0) return "No pi-mrc compaction reports found in this session.";
   const recent = records.slice(-limit);
   const lines = [
-    `pi-vcc compaction reports (${records.length} found, showing ${recent.length})`,
+    `pi-mrc compaction reports (${records.length} found, showing ${recent.length})`,
     "",
   ];
   for (const [index, record] of recent.entries()) {
@@ -150,7 +150,7 @@ export const formatCompactionReportCommandSummary = (
   record: CompactionReportRecord,
   artifacts: CompactionReportArtifacts,
 ): string => [
-  "Latest pi-vcc compaction report",
+  "Latest pi-mrc compaction report",
   "",
   formatCompactionReportSummaryLine(record.report),
   "",
@@ -158,5 +158,5 @@ export const formatCompactionReportCommandSummary = (
   `- Markdown: ${artifacts.markdownPath}`,
   `- JSON: ${artifacts.jsonPath}`,
   "",
-  `Use /pi-vcc-report show to display the expanded report inline, or /pi-vcc-report json inline to print raw JSON into the session.`,
+  `Use /pi-mrc-report show to display the expanded report inline, or /pi-mrc-report json inline to print raw JSON into the session.`,
 ].join("\n");

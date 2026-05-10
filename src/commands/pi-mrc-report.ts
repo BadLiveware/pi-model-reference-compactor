@@ -4,7 +4,7 @@ import {
   findCompactionReportRecords,
   formatCompactionReportCommandSummary,
   formatCompactionReportRecordList,
-  PI_VCC_REPORT_COMMAND_TYPE,
+  PI_MRC_REPORT_COMMAND_TYPE,
   selectCompactionReportRecord,
   writeCompactionReportArtifacts,
 } from "../core/compaction-report-history";
@@ -36,9 +36,9 @@ const sessionEntriesOf = (ctx: any): any[] => {
 const entryIdFromArgs = (args: string): string | undefined =>
   args.match(/\bentry:([^\s]+)/i)?.[1];
 
-export const registerPiVccReportCommand = (pi: ExtensionAPI) => {
-  pi.registerCommand("pi-vcc-report", {
-    description: "Inspect latest pi-vcc compaction report; args: list, show, json, entry:<id>",
+export const registerPiMrcReportCommand = (pi: ExtensionAPI) => {
+  pi.registerCommand("pi-mrc-report", {
+    description: "Inspect latest pi-mrc compaction report; args: list, show, json, entry:<id>",
     handler: async (args: string, ctx) => {
       const raw = args.trim();
       const lower = raw.toLowerCase();
@@ -46,7 +46,7 @@ export const registerPiVccReportCommand = (pi: ExtensionAPI) => {
 
       if (lower.includes("list")) {
         pi.sendMessage({
-          customType: PI_VCC_REPORT_COMMAND_TYPE,
+          customType: PI_MRC_REPORT_COMMAND_TYPE,
           content: formatCompactionReportRecordList(records),
           display: true,
         });
@@ -57,13 +57,13 @@ export const registerPiVccReportCommand = (pi: ExtensionAPI) => {
       const record = selectCompactionReportRecord(records, entryId);
       if (!record) {
         const suffix = entryId ? ` for entry ${entryId}` : "";
-        ctx.ui.notify(`No pi-vcc compaction report found${suffix}.`, "warning");
+        ctx.ui.notify(`No pi-mrc compaction report found${suffix}.`, "warning");
         return;
       }
 
       if (lower.includes("json") && lower.includes("inline")) {
         pi.sendMessage({
-          customType: PI_VCC_REPORT_COMMAND_TYPE,
+          customType: PI_MRC_REPORT_COMMAND_TYPE,
           content: `\`\`\`json\n${JSON.stringify(record.report, null, 2)}\n\`\`\``,
           display: true,
           details: record.report,
@@ -73,7 +73,7 @@ export const registerPiVccReportCommand = (pi: ExtensionAPI) => {
 
       if (lower.includes("show") || lower.includes("inline")) {
         pi.sendMessage({
-          customType: PI_VCC_REPORT_COMMAND_TYPE,
+          customType: PI_MRC_REPORT_COMMAND_TYPE,
           content: formatCompactionReportCard(record.report, { expanded: true }),
           display: true,
           details: record.report,
@@ -83,7 +83,7 @@ export const registerPiVccReportCommand = (pi: ExtensionAPI) => {
 
       const artifacts = writeCompactionReportArtifacts(record);
       pi.sendMessage({
-        customType: PI_VCC_REPORT_COMMAND_TYPE,
+        customType: PI_MRC_REPORT_COMMAND_TYPE,
         content: formatCompactionReportCommandSummary(record, artifacts),
         display: true,
         details: { report: record.report, artifacts },

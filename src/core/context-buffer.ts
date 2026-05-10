@@ -3,7 +3,7 @@
  *
  * Hooks Pi's `context` event to capture the actual assembled AgentMessage[]
  * that Pi sends to the model. Stores per-session rotating buffers under
- * /tmp/pi-vcc-context-buffers/<session-hash>.json.
+ * /tmp/pi-mrc-context-buffers/<session-hash>.json.
  *
  * This gives dump-context.ts real data instead of algorithmic guesswork.
  */
@@ -12,7 +12,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import { dirname } from "path";
 import { createHash } from "crypto";
 
-const BUFFER_DIR = "/tmp/pi-vcc-context-buffers";
+const BUFFER_DIR = "/tmp/pi-mrc-context-buffers";
 const MAX_SLOTS = 3;
 
 interface ContextSlot {

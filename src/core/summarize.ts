@@ -17,7 +17,7 @@ import {
 } from "./compaction-state";
 import {
   buildCompactionReport,
-  type PiVccCompactionReport,
+  type PiMrcCompactionReport,
 } from "./compaction-report";
 
 export interface CompileInput {
@@ -35,7 +35,7 @@ export interface CompileReportContext {
 }
 
 export interface CompileWithReportResult extends CompileWithLayersResult {
-  report: PiVccCompactionReport;
+  report: PiMrcCompactionReport;
 }
 
 export type { CompiledLayerRole, CompiledSummaryLayer, CompileWithLayersResult } from "./compaction-state";

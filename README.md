@@ -1,294 +1,292 @@
-# pi-vcc
+# pi-mrc
 
-[![npm](https://img.shields.io/npm/v/@sting8k/pi-vcc)](https://www.npmjs.com/package/@sting8k/pi-vcc)
+[![npm](https://img.shields.io/npm/v/@sting8k/pi-mrc)](https://www.npmjs.com/package/@sting8k/pi-mrc)
 
-Algorithmic conversation compactor for [Pi](https://github.com/badlogic/pi-mono). No LLM calls — produces a brief transcript via extraction and formatting.
+`pi-mrc` is a Model-Reference Compactor for [Pi](https://github.com/badlogic/pi-mono). It compacts conversation history into a small continuation state, stashes recoverable detail behind exact handles, and appends only the latest needed lookup index at the end of the model context.
 
-Inspired by [VCC](https://github.com/lllyasviel/VCC) **(View-oriented Conversation Compiler)**.
+The goal is not fuzzy transcript search or the shortest possible summary. The goal is: **after compaction, the next agent should know what to do, have room to work, and recover exact hidden context by handle when needed.**
 
-## Demo
+## What pi-mrc optimizes
 
-![pi-vcc demo](./demo.gif)
-
-## Why pi-vcc
-
-|  | Pi default | pi-vcc |
-|---|---|---|
-| **Method** | LLM-generated summary | Algorithmic extraction, no LLM |
-| **Determinism** | Non-deterministic, can hallucinate | Same input = same output, always |
-| **Token reduction** | Varies | 35-99% on real sessions (higher on longer sessions) |
-| **Compaction latency** | Waits for LLM call | 30-470ms, no API calls |
-| **History after compaction** | Gone — agent only sees summary | Active lineage searchable via `vcc_recall` (`scope:"all"` available) |
-| **Repeated compactions** | Each rewrite risks losing more | Sections merge and accumulate |
-| **Cost** | Burns tokens on summarization call | Zero — no API calls |
-| **Structure** | Free-form prose | Brief transcript + 4 semantic sections |
-
-### Real session metrics
-
-Measured on real session JSONLs under `~/.pi/agent/sessions` (chars = rendered message text).
-
-| Session | Messages | Before | After | Reduction | Time |
-|---|---|---|---|---|---|
-| Session A | 2,943 | 997,162 | 7,959 | 99.2% | 64ms |
-| Session B | 1,703 | 428,334 | 7,762 | 98.2% | 29ms |
-| Session C | 1,657 | 424,183 | 9,577 | 97.7% | 54ms |
-| Session D | 1,004 | 2,258,477 | 4,439 | 99.8% | 30ms |
-| Session E | 486 | 295,006 | 11,163 | 96.2% | 30ms |
-| Session F | 46 | 5,234 | 3,364 | 35.7% | 5ms |
-| Session G | 27 | 8,595 | 2,489 | 71.0% | 2ms |
-
-## Features
-
-- **No LLM** — purely algorithmic, zero extra API cost
-- **Brief transcript** — chronological conversation flow, each tool call collapsed to a one-liner with `(#N)` refs, text truncated to keep it compact
-- **5 semantic sections** — session goal, files & changes, commits, outstanding context, user preferences
-- **Bounded merge** — rolling sections re-capped after merge instead of growing unbounded
-- **Lossless recall** — `vcc_recall` reads raw session JSONL, so active-lineage history stays searchable across compactions
-- **Scoped recall** — default search is active lineage; use `scope:"all"` / `scope:all` to intentionally search across all lineages
-- **Regex search** — `vcc_recall` supports regex patterns (`hook|inject`, `fail.*build`) and OR-ranked multi-word queries
-- **Result ranking** — search results ranked by term relevance, rare terms weighted higher than common ones
-- **`/pi-vcc-recall`** — slash command to search history directly, results shown as collapsible message and auto-fed to agent as context
-- **Fallback cut** — still works when Pi core returns nothing to summarize
-- **`/pi-vcc`** — manual compaction on demand
-- **Compaction report card** — pi-vcc emits a separate sanity-check card after compaction with message counts, stable/recent section churn, cap warnings, and machine-readable details for deeper inspection
-- **`/pi-vcc-report`** — writes latest report Markdown/JSON artifacts or displays the report inline for a deeper inspection channel
+- **Continuation fidelity** — active goals, constraints, decisions, evidence handles, blockers, and next actions survive compaction.
+- **Working room** — bulky old context is moved out of the active prompt.
+- **Exact recoverability** — stashed details are resolved through `mrc_lookup`, not broad fuzzy search.
+- **Cache stability** — stable guidance and KEEP chunks stay in the summary; volatile reference lists are appended as a late ephemeral suffix.
+- **Source recoverability** — repository source is authoritative and rereadable, so source refs preserve locators instead of stale copied code bodies.
 
 ## Install
 
 ```bash
-pi install npm:@sting8k/pi-vcc
+pi install npm:@sting8k/pi-mrc
 ```
 
 Or from GitHub:
 
 ```bash
-pi install https://github.com/sting8k/pi-vcc
+pi install https://github.com/sting8k/pi-mrc
 ```
 
-Or try without installing:
+Try without installing:
 
 ```bash
-pi -e https://github.com/sting8k/pi-vcc
+pi -e https://github.com/sting8k/pi-mrc
 ```
 
-## Usage
+## Quick use
 
-Once installed, pi-vcc registers a `session_before_compact` hook.
+Manual MRC compaction:
 
-- Run `/pi-vcc` to trigger pi-vcc compaction manually.
-- After pi-vcc compacts, it emits a separate `[pi-vcc]` report card. The collapsed card is a quick sanity check; expand it for section-level churn, caps, warnings, and where to inspect the full machine-readable report.
-- Run `/pi-vcc-report` to write the latest report to Markdown/JSON files under `/tmp/pi-vcc-reports` and show the paths. Use `/pi-vcc-report show` for an inline expanded report, `/pi-vcc-report json inline` for raw JSON, or `/pi-vcc-report list` to list available reports.
-- By default, `/compact` and auto-threshold compactions still go through pi core (LLM-based). Set `overrideDefaultCompaction: true` in the config to let pi-vcc handle all compaction paths.
-- To search older active-lineage history after compaction, use `vcc_recall`.
-- To intentionally search across all lineages, pass `scope:"all"` to `vcc_recall` or run `/pi-vcc-recall <query> scope:all`.
-- To search and feed results to agent yourself, run `/pi-vcc-recall <query> [page:N]`.
-  - Tip: type `/recall` and Pi will autocomplete to `/pi-vcc-recall`.
-
-### How compaction works
-
-Pi splits the conversation at the **last user message**. Everything after — the **kept tail** — stays intact and untouched. pi-vcc only summarizes the older portion before that cut point.
-
-### Compacted message structure
-
-```
-[Session Goal]
-- Fix the authentication bug in login flow
-- [Scope change]
-- Also update the session token refresh logic
-
-[Files And Changes]
-- Modified: src/auth/session.ts
-- Created: tests/auth-refresh.test.ts
-
-[Commits]
-- a1b2c3d: fix(auth): refresh token after password reset
-
-[User Preferences]
-- Prefer Vietnamese responses
-- Always run tests before committing
-
-[Current Scope]
-- Update token refresh tests
-
-[Recent Commits]
-- b2c3d4e: test(auth): cover token refresh
-
-[Outstanding Context]
-- lint check still failing on line 42
-
-[user]
-Fix the auth bug, users can't log in after password reset
-
-[assistant]
-Root cause is a missing token refresh after password reset...
-* bash "bun test tests/auth.test.ts" (#12)
-* edit "src/auth/session.ts" (#14)
-* bash "bun test tests/auth.test.ts" (#16)
-...(28 earlier lines omitted)
+```text
+/pi-mrc
 ```
 
-Sections appear only when relevant — a session with no git commits won't have `[Commits]`.
+Disable automatic pi-mrc interception for this session:
 
-**Sections:**
-
-| Section | Description |
-|---|---|
-| `[Session Goal]` | Durable objective and initial task context |
-| `[Files And Changes]` | Modified/created/read files from tool calls (capped, paths trimmed to common root) |
-| `[Commits]` | Established git commits already part of stable current state |
-| `[Evidence Handles]` | Established paths, error signatures, request IDs, spans, probes, and labeled commit hashes |
-| `[User Preferences]` | Established regex-extracted preferences (`always`, `never`, `prefer`...) |
-| `[Current Scope]` | Durable current scope once established |
-| `[Recent Commits]`, `[Recent Scope Updates]`, `[Recent User Preferences]`, `[Recent Evidence Handles]` | Fresh additive facts isolated late to protect stable prompt-cache prefixes |
-| `[Outstanding Context]` | Volatile unresolved items — errors, blockers, pending questions |
-| Brief transcript | Chronological conversation flow — rolling window of ~120 recent lines, tool calls collapsed to one-liners with `(#N)` refs |
-
-**Merge policy:**
-- Stable/current sections stay byte-stable whenever possible.
-- Additive commits, scope, preferences, and evidence route to bounded `Recent *` sections.
-- Explicit preference corrections rewrite stable preferences.
-- `Outstanding Context` is fresh-only (replaced each compaction).
-- Brief transcript is a rolling window; older exact detail remains recoverable via recall/session JSONL.
-
-## Recall (Lossless History)
-
-Pi's default compaction discards old messages permanently. After compaction, the agent only sees the summary.
-
-`vcc_recall` bypasses this by reading the raw session JSONL file directly. By default it searches only the active conversation lineage, regardless of how many compactions have happened. Use `scope:"all"` only when you intentionally want to include off-lineage branches.
-
-### Search
-
-Queries support **regex** and **multi-word OR logic** ranked by relevance:
-
-```
-vcc_recall({ query: "auth token" })                         // active-lineage OR search, ranked
-vcc_recall({ query: "auth token", page: 2 })                // paginated (5 results/page)
-vcc_recall({ query: "hook|inject" })                         // regex pattern
-vcc_recall({ query: "fail.*build" })                         // regex pattern
-vcc_recall({ query: "auth token", scope: "all" })           // search all lineages
+```text
+/pi-mrc-off
 ```
 
-Manual slash command:
+Re-enable it:
 
-```
-/pi-vcc-recall auth token scope:all
-```
-
-### Browse
-
-Without a query, returns the last 25 entries as brief summaries:
-
-```
-vcc_recall()
-vcc_recall({ scope: "all" })  // browse recent entries across all lineages
+```text
+/pi-mrc-on
 ```
 
-### Expand
+Inspect compaction reports:
 
-Returns full untruncated content for specific indices found via search:
-
-```
-vcc_recall({ expand: [41, 42] })                 // active-lineage expand
-vcc_recall({ expand: [41, 42], scope: "all" })   // expand across all lineages
-```
-
-Typical workflow: **search → find relevant entry indices → expand those indices for full content**.
-
-> Some tool results are truncated by Pi core at save time. `expand` returns everything in the JSONL but can't recover what Pi already cut.
-
-## Pipeline
-
-1. **Normalize** — raw Pi messages → uniform blocks (user, assistant, tool_call, tool_result, thinking)
-2. **Filter noise** — strip system messages, empty blocks
-3. **Build sections** — extract goal, file paths, blockers, preferences
-4. **Brief transcript** — chronological conversation flow, tool calls collapsed to one-liners, text truncated
-5. **Format** — render into bracketed sections + transcript
-6. **Merge** — if previous summary exists: sticky sections merge, volatile sections replace, transcript rolls
-
-## Compaction benchmark
-
-An offline benchmark harness lives under `bench/compaction`. It replays pressure-style synthetic long-session scenarios through multiple compactors and records continuation-oriented metrics: exact state recovery, current-state recovery, recall recovery, prompt size, simulated full-prompt cache churn, longest common prefix, stale-fact leakage, and recall-only offload leakage.
-
-Run all offline compactors:
-
-```bash
-bun scripts/bench-compaction.ts
+```text
+/pi-mrc-report show
+/pi-mrc-report json inline
+/pi-mrc-report list
 ```
 
-Emit one JSON record per compaction cycle:
+Resolve an exact handle:
 
-```bash
-bun scripts/bench-compaction.ts --jsonl > bench-results.jsonl
+```text
+mrc_lookup({ ref: "evidence:79dq9m" })
+mrc_lookup({ ref: "ref:read-context:df20oq" })
 ```
 
-Limit the comparison to selected compactors:
+List recent known handles:
 
-```bash
-bun scripts/bench-compaction.ts --compactors pi-vcc,cache-aware-layered
+```text
+mrc_lookup({ list: true, limit: 10 })
 ```
 
-Run the same benchmark in Docker:
+`mrc_lookup` is exact lookup over MRC references in the active lineage. It is intentionally not fuzzy transcript search.
 
-```bash
-docker build -t pi-vcc-bench .
-docker run --rm pi-vcc-bench
+## How MRC compaction works
+
+pi-mrc turns conversation state into referenceable chunks and classifies them into three tiers:
+
+- **KEEP** — directly needed for the next read/edit/bash call.
+- **REF** — useful later, but recoverable by handle.
+- **DROP** — stale, duplicate, source-visible, or otherwise not worth preserving.
+
+The compaction summary contains:
+
+1. a minimum viable summary (MVS),
+2. selected KEEP chunks,
+3. stable instructions for interpreting refs,
+4. no dynamic full ref inventory.
+
+Dynamic refs are deliberately kept out of the summary. If the summary rewrote a changing list of refs on every compaction, it would churn early prompt context and reduce provider cache reuse.
+
+## Context shape
+
+During normal turns, pi-mrc stores full reference bodies in non-context session state and adds tiny handle anchors near the turn. After compaction, it advertises only refs that were stashed by the latest compaction and are not already visible.
+
+Provider payload after a compaction looks like:
+
+```text
+SYSTEM / tools / AGENTS.md / skills
++
+Compaction summary with MVS, KEEP chunks, and stable ref guidance
++
+Kept recent transcript tail
++
+User: Continue the implementation
++
+[MRC refs]
+Internal latest-compaction stash. Prefer visible context; use mrc_lookup only if needed. Source refs are locators; reread files for code. Do not expose handles unless asked.
+- ref:evidence:79dq9m — lookup if evidence details are needed: Error signatures: ERR_FOO_123
+- ref:read-context:df20oq — lookup if recent read-file locator is needed: Source locator: src/core/foo.ts; symbols: buildFoo, parseFoo; reread the repo...
 ```
 
-Pass benchmark arguments after the image name:
+Before compaction, tiny anchors may appear near prior turns:
 
-```bash
-docker run --rm pi-vcc-bench --compactors pi-vcc,cache-aware-layered
+```text
+Assistant: I patched src/core/foo.ts and reran the focused test.
+[MRC anchors: ref:evidence:79dq9m ref:read-context:df20oq]
 ```
 
-Explain pi-vcc report decisions for a focused case:
+Those anchors are intentionally small. They let a future compaction preserve lookup continuity without copying large hidden bodies into prompt text.
 
-```bash
-bun scripts/bench-compaction.ts --compactors pi-vcc --case-filter cache-bust-scope-growth --explain
-bun scripts/bench-compaction.ts --compactors pi-vcc --include-report --jsonl
+## Reference lifecycle
+
+| Piece | Persisted? | Sent to model? | Purpose |
+| --- | --- | --- | --- |
+| Hidden ref state | Yes, non-context custom entries | No | Stores exact bodies for `mrc_lookup`. |
+| `[MRC anchors: ...]` | Yes, tiny custom messages | Yes, near the turn | Gives compaction handle breadcrumbs. |
+| Compaction stash | Yes, in compaction details | No direct prompt body | Records refs cut away by the latest compaction. |
+| `[MRC refs]` suffix | No, rebuilt per model call | Yes, always last | Advertises latest-compaction stashed refs only. |
+
+Design decisions:
+
+- **Exact handles beat fuzzy search.** The model should recover known stashed facts by handle, not search the whole transcript.
+- **Anchors are not user-facing.** The model is told not to mention or expose handles unless explicitly asked about compaction internals.
+- **A handle is not evidence.** The model should call `mrc_lookup` before relying on hidden contents.
+- **The suffix is ephemeral.** It is appended after the current user message so earlier context remains cacheable.
+
+## Source recoverability
+
+Repository source can be reread and may change. pi-mrc therefore stores source refs as locators, not copied source bodies.
+
+Example hidden body for a read-file ref:
+
+```text
+Source locator: src/core/foo.ts; symbols: veryImportantHandler, helper; reread the repository file for authoritative source.
 ```
 
-Use assertion mode when checking a selected compactor against the current benchmark gates:
+This preserves the route back to the source without making stale snippets look authoritative.
 
-```bash
-bun scripts/bench-compaction.ts --compactors pi-vcc --assert
-bun scripts/bench-compaction.ts --compactors pi-vcc --assert-cache
-docker run --rm pi-vcc-bench --compactors pi-vcc --assert
-docker run --rm pi-vcc-bench --compactors pi-vcc --assert-cache
+pi-mrc keeps full hidden bodies for context that is not cheaply recoverable from files:
+
+- exact error output,
+- benchmark results,
+- request IDs, span IDs, trace IDs, and probe IDs,
+- user decisions and constraints,
+- deleted or dirty edits not present in current files,
+- non-obvious investigation conclusions.
+
+## `mrc_lookup`
+
+`mrc_lookup` resolves exact handles from hidden ref state and latest compaction stash details.
+
+Lookup by handle:
+
+```text
+mrc_lookup({ ref: "evidence:79dq9m" })
 ```
 
-Sample real Pi sessions for size, latency, and cache-churn metrics:
+Example result:
 
-```bash
-docker run --rm \
-  -v ~/.pi/agent/sessions:/sessions:ro \
-  pi-vcc-bench \
-  --real-only \
-  --real-sessions-dir /sessions \
-  --real-limit 2 \
-  --compactors pi-vcc \
-  --jsonl
+```text
+## ref:evidence:79dq9m
+kind: evidence
+source: compaction
+entry: 42 @ 2026-05-10T12:34:56.000Z
+summary: lookup if evidence details are needed: Error signatures: ERR_FOO_123
+
+Error signatures: ERR_FOO_123
 ```
 
-Assertion failures are expected for current baselines while these RED scenarios document known gaps. The default synthetic benchmark is deterministic and does not call model providers. Real-session sampling depends on the mounted local session corpus. Provider-reported cached-token and latency measurements should be added as an opt-in benchmark because they require credentials and can create billable requests.
+List recent refs:
 
-## Config
+```text
+mrc_lookup({ list: true, limit: 10 })
+```
 
-Config lives at `~/.pi/agent/pi-vcc-config.json` (auto-scaffolded on first load with safe defaults):
+No fuzzy query mode is provided. If broad transcript search is wanted later, it should be a separate tool with a separate name and policy.
+
+## Commands and tools
+
+| Name | Kind | Description |
+| --- | --- | --- |
+| `/pi-mrc` | command | Run MRC compaction manually. |
+| `/pi-mrc-off` | command | Disable pi-mrc interception for this session. |
+| `/pi-mrc-on` | command | Re-enable pi-mrc interception for this session. |
+| `/pi-mrc-report` | command | Show or write latest compaction report artifacts. |
+| `/pi-mrc-dump-context` | command | Debug current real context buffer or extracted session context. |
+| `mrc_lookup` | tool | Resolve exact MRC `ref:*` handles and hidden bodies. |
+
+## Configuration
+
+Config lives at `~/.pi/agent/pi-mrc-config.json` and is scaffolded on first load:
 
 ```json
 {
-  "overrideDefaultCompaction": false,
+  "overrideDefaultCompaction": true,
   "debug": false
 }
 ```
 
-- **`overrideDefaultCompaction`** *(default `false`)*: when `false`, pi-vcc only runs for `/pi-vcc`; `/compact` and auto-threshold compactions fall through to pi core. Set `true` to make pi-vcc handle all compaction paths.
-- **`debug`** *(default `false`)*: when `true`, each compaction writes detailed info to `/tmp/pi-vcc-debug.json` — message counts, cut boundary, summary preview, sections.
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `overrideDefaultCompaction` | `true` | When true, pi-mrc handles `/compact`, auto-threshold, overflow retry compactions, and `/pi-mrc`. When false, only `/pi-mrc` is intercepted. |
+| `debug` | `false` | Write `/tmp/pi-mrc-debug.json` after compaction with cut boundary, counts, summary preview, and stash stats. |
 
-## Related Work
+## Compaction reports
 
-- [VCC](https://github.com/lllyasviel/VCC) — the original transcript-preserving conversation compiler
-- [Pi](https://github.com/badlogic/pi-mono) — the AI coding agent this extension is built for
+After pi-mrc compacts, it emits a report card with:
+
+- source and kept message counts,
+- skipped internal message counts,
+- summary size and classifier timing,
+- compaction details containing the hidden `modelReferenceIndex` stash.
+
+Artifacts are written under `/tmp/pi-mrc-reports`.
+
+## Benchmarking and validation
+
+Build the benchmark image:
+
+```bash
+docker build -t pi-mrc-bench .
+```
+
+Run MRC assertion gates:
+
+```bash
+docker run --rm pi-mrc-bench --compactors model-reference-selector --assert
+```
+
+The old structured compactor remains in the benchmark harness as an internal baseline, not the public product surface:
+
+```bash
+docker run --rm pi-mrc-bench --compactors pi-vcc --assert
+docker run --rm pi-mrc-bench --compactors pi-vcc --assert-cache
+```
+
+Compare revisions:
+
+```bash
+node scripts/compare-compaction-refs.mjs \
+  --baseline 53dc551 \
+  --head HEAD \
+  --compactors pi-vcc \
+  --out /tmp/pi-mrc-compaction-compare
+```
+
+Real-session replay:
+
+```bash
+docker run --rm \
+  -v ~/.pi/agent/sessions:/sessions:ro \
+  pi-mrc-bench \
+  --real-only \
+  --real-sessions-dir /sessions \
+  --real-limit 5 \
+  --compactors pi-vcc \
+  --jsonl
+```
+
+Recent validation for the MRC path passed:
+
+- `model-reference-selector --assert`,
+- focused smokes for anchors, latest-compaction stash, no-precompaction refs, guidance, exact lookup, and source-locator refs,
+- legacy structured `pi-vcc --assert` and `pi-vcc --assert-cache` while that baseline remains in the harness.
+
+`53dc551` is the pre-MRC structured baseline used for repo-local comparisons. Pi's built-in compactor is not exported as a callable API, so this benchmark does not directly compare against Pi internal compaction.
+
+## Design principles
+
+- **MRC + exact lookup is the product.** Fuzzy recall is intentionally out of scope.
+- **Keep dynamic refs late.** The latest ref index is an ephemeral postfix, not summary text.
+- **Keep handles internal.** Refs are agent continuity metadata, not user-facing prose.
+- **Reread source.** File/symbol locators are safer than copied code snippets.
+- **Preserve unrecoverable facts.** Exact errors, constraints, benchmark results, and user decisions must remain in prompt or lookup.
+- **Validate cache behavior.** Use Docker gates and real-session replay before claiming continuation or cache wins.
 
 ## License
 

@@ -1,16 +1,16 @@
 /**
- * /pi-vcc-dump-context command.
+ * /pi-mrc-dump-context command.
  *
  * Extracts a structured context guide from the current session JSONL
  * without triggering any compaction. Writes Markdown by default;
  * supports --raw for JSONL dump and --summary for inline display.
  *
  * Usage:
- *   /pi-vcc-dump-context                          → writes to /tmp/pi-vcc-context-guide.md
- *   /pi-vcc-dump-context /path/to/output.md       → writes to specified path
- *   /pi-vcc-dump-context --raw                    → dumps raw active branch as JSONL
- *   /pi-vcc-dump-context --raw /path/to/out.jsonl → raw JSONL to specified path
- *   /pi-vcc-dump-context --summary               → displays extracted context inline
+ *   /pi-mrc-dump-context                          → writes to /tmp/pi-mrc-context-guide.md
+ *   /pi-mrc-dump-context /path/to/output.md       → writes to specified path
+ *   /pi-mrc-dump-context --raw                    → dumps raw active branch as JSONL
+ *   /pi-mrc-dump-context --raw /path/to/out.jsonl → raw JSONL to specified path
+ *   /pi-mrc-dump-context --summary               → displays extracted context inline
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -25,7 +25,7 @@ import {
 } from "../core/dump-context";
 
 export const registerDumpContextCommand = (pi: ExtensionAPI) => {
-  pi.registerCommand("pi-vcc-dump-context", {
+  pi.registerCommand("pi-mrc-dump-context", {
     description:
       "Extract structured context guide from session JSONL. Args: [output path] [--raw] [--summary]. No compaction is triggered.",
     handler: async (args: string, ctx) => {
@@ -95,7 +95,7 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
           lines.push(`${prefix}\n${truncated}\n`);
         }
 
-        const outPath = pathArg || `/tmp/pi-vcc-raw-context-${Date.now()}.txt`;
+        const outPath = pathArg || `/tmp/pi-mrc-raw-context-${Date.now()}.txt`;
         const dir = dirname(outPath);
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
         writeFileSync(outPath, lines.join("\n"));
@@ -119,7 +119,7 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
       if (isSummary) {
         const guide = formatContextGuide(extracted, sessionFile);
         pi.sendMessage({
-          customType: "vcc-context-dump",
+          customType: "mrc-context-dump",
           content: guide,
           display: true,
         });
@@ -151,7 +151,7 @@ export const registerDumpContextCommand = (pi: ExtensionAPI) => {
         `  Compaction summaries: ${extracted.compactionSummaries.length}`,
       ];
       pi.sendMessage({
-        customType: "vcc-context-dump",
+        customType: "mrc-context-dump",
         content: summary.join("\n"),
         display: true,
       });
