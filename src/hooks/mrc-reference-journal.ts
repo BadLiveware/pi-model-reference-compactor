@@ -6,6 +6,8 @@ import {
   buildMrcReferenceJournal,
   PI_MRC_ANCHOR_TYPE,
   PI_MRC_REFERENCES_STATE_TYPE,
+  PI_MRC_REFERENCES_TYPE,
+  insertBeforeLatestUserMessage,
   renderEphemeralMrcRefs,
   renderMrcReferenceAnchor,
 } from "../core/mrc-reference-journal";
@@ -24,16 +26,14 @@ export const registerMrcReferenceJournalHook = (pi: ExtensionAPI) => {
     if (!shouldJournalReferences(ctx.sessionManager.getSessionFile())) return;
     const content = renderEphemeralMrcRefs(ctx.sessionManager.getBranch(), 8, event.messages as any[]);
     if (!content) return;
-    return {
-      messages: [
-        ...(event.messages as any[]),
-        {
-          role: "user",
-          content: [{ type: "text", text: content }],
-          timestamp: Date.now(),
-        },
-      ],
+    const message = {
+      role: "custom",
+      customType: PI_MRC_REFERENCES_TYPE,
+      content,
+      display: false,
+      timestamp: Date.now(),
     };
+    return { messages: insertBeforeLatestUserMessage(event.messages as any[], message) };
   });
 
   pi.on("agent_end", async (event, ctx) => {

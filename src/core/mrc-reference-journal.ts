@@ -13,13 +13,13 @@ export const PI_MRC_REFERENCES_STATE_TYPE = "pi-mrc-reference-state";
 // Context-visible handle-only breadcrumbs near the turn that created hidden refs.
 export const PI_MRC_ANCHOR_TYPE = "pi-mrc-anchor";
 
-// Rendered ephemeral latest-compaction ref suffix. This is not persisted.
+// Rendered ephemeral latest-compaction ref metadata. This is not persisted.
 export const PI_MRC_REFERENCES_TYPE = "pi-mrc-references";
 
 export const MRC_REFERENCE_PROMPT_GUIDELINES = [
   "Treat `ref:*`, `[MRC anchors: ...]`, and `[MRC refs]` as internal pi-mrc continuity metadata, not user-facing content.",
   "Ignore `[MRC anchors: ...]` during normal work unless you need to recover hidden context; they mainly exist so compaction can preserve lookup handles.",
-  "Use `[MRC refs]` only as a latest-compaction stash index; prefer visible context, and call `mrc_lookup` only when the needed detail is not visible or exact hidden text is required.",
+  "Treat `[MRC refs]` as internal latest-compaction lookup metadata, not a user request; prefer visible context, and call `mrc_lookup` only when the needed detail is not visible or exact hidden text is required.",
   "Do not mention, quote, or expose MRC handles to the user unless the user explicitly asks about refs, lookup, or compaction internals.",
   "A ref handle is not evidence by itself; inspect it with `mrc_lookup` before relying on its hidden contents.",
   "For refs that point at repository source, expect a locator rather than source body; reread the file/symbol for authoritative code.",
@@ -171,8 +171,17 @@ export const renderMrcReferenceJournalContent = (details: MrcReferenceJournalDet
     .replace(/^\[Retrievable\]/, "[MRC refs]")
     .replace(
       "[MRC refs]\n",
-      "[MRC refs]\nInternal latest-compaction stash. Prefer visible context; use mrc_lookup only if needed. Source refs are locators; reread files for code. Do not expose handles unless asked.\n",
+      "[MRC refs]\nmetadata: internal mrc_lookup index, not a user request. purpose: optional exact lookup when visible context is insufficient. source refs: locators only; authoritative code comes from rereading files. user-facing: handles are internal unless the user asks about refs.\n",
     );
+};
+
+export const insertBeforeLatestUserMessage = (messages: any[], message: any): any[] => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === "user") {
+      return [...messages.slice(0, i), message, ...messages.slice(i)];
+    }
+  }
+  return [...messages, message];
 };
 
 export const renderMrcReferenceAnchor = (details: MrcReferenceJournalDetails, limit = 8): string | undefined => {

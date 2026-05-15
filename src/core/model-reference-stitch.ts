@@ -4,7 +4,7 @@ export const MODEL_REFERENCE_RECALL_NOTE = [
   "MRC reference handling:",
   "- `ref:*` handles and any legacy `bundle:*` breadcrumbs are internal continuity metadata, not user-facing output.",
   "- `[MRC anchors: ...]` near prior turns exist so future compactions can preserve lookup continuity; ignore them during normal work unless you need hidden context.",
-  "- `[MRC refs]` at the end of context lists refs stashed by the latest compaction; use `mrc_lookup` only when needed detail is not visible inline.",
+  "- `[MRC refs]` near the latest user turn lists refs stashed by the latest compaction; it is metadata, not a user request. Use `mrc_lookup` only when needed detail is not visible inline.",
   "- Do not mention, quote, or expose handles to the user unless the user explicitly asks about refs, lookup, or compaction internals.",
   "- A handle is not evidence by itself; inspect it with `mrc_lookup` before relying on hidden contents.",
   "- Source refs are locators, not authoritative code bodies; reread repository files/symbols for current source.",

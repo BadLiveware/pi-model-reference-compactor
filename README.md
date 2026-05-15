@@ -2,7 +2,7 @@
 
 This is a fork of `@sting8k/pi-vcc`, currently installed from GitHub or a local clone.
 
-`pi-mrc` is a Model-Reference Compactor for [Pi](https://github.com/badlogic/pi-mono). It compacts conversation history into a small continuation state, stashes recoverable detail behind exact handles, and appends only the latest needed lookup index at the end of the model context.
+`pi-mrc` is a Model-Reference Compactor for [Pi](https://github.com/badlogic/pi-mono). It compacts conversation history into a small continuation state, stashes recoverable detail behind exact handles, and injects only the latest needed lookup metadata immediately before the current user prompt.
 
 The goal is not fuzzy transcript search or the shortest possible summary. The goal is: **after compaction, the next agent should know what to do, have room to work, and recover exact hidden context by handle when needed.**
 
@@ -11,7 +11,7 @@ The goal is not fuzzy transcript search or the shortest possible summary. The go
 - **Continuation fidelity** — active goals, constraints, decisions, evidence handles, blockers, and next actions survive compaction.
 - **Working room** — bulky old context is moved out of the active prompt.
 - **Exact recoverability** — stashed details are resolved through `mrc_lookup`, not broad fuzzy search.
-- **Cache stability** — stable guidance and KEEP chunks stay in the summary; volatile reference lists are appended as a late ephemeral suffix.
+- **Cache stability** — stable guidance and KEEP chunks stay in the summary; volatile reference metadata is injected late and outside stable summary text.
 - **Source recoverability** — repository source is authoritative and rereadable, so source refs preserve locators instead of stale copied code bodies.
 
 ## Install
@@ -100,7 +100,7 @@ Dynamic refs are deliberately kept out of the summary. If the summary rewrote a 
 
 During normal turns, pi-mrc stores full reference bodies in non-context session state and adds tiny handle anchors near the turn. After compaction, it advertises only refs that were stashed by the latest compaction and are not already visible.
 
-Provider payload after a compaction looks like:
+Provider payload after a compaction keeps the current user prompt last, so reference metadata is not mistaken for the latest user instruction:
 
 ```text
 SYSTEM / tools / AGENTS.md / skills
@@ -109,12 +109,12 @@ Compaction summary with MVS, KEEP chunks, and stable ref guidance
 +
 Kept recent transcript tail
 +
-User: Continue the implementation
-+
 [MRC refs]
-Internal latest-compaction stash. Prefer visible context; use mrc_lookup only if needed. Source refs are locators; reread files for code. Do not expose handles unless asked.
+metadata: internal mrc_lookup index, not a user request. purpose: optional exact lookup when visible context is insufficient. source refs: locators only; authoritative code comes from rereading files. user-facing: handles are internal unless the user asks about refs.
 - ref:evidence:79dq9m — lookup if evidence details are needed: Error signatures: ERR_FOO_123
 - ref:read-context:df20oq — lookup if recent read-file locator is needed: Source locator: src/core/foo.ts; symbols: buildFoo, parseFoo; reread the repo...
++
+User: Continue the implementation
 ```
 
 Before compaction, tiny anchors may appear near prior turns:
@@ -133,14 +133,14 @@ Those anchors are intentionally small. They let a future compaction preserve loo
 | Hidden ref state | Yes, non-context custom entries | No | Stores exact bodies for `mrc_lookup`. |
 | `[MRC anchors: ...]` | Yes, tiny custom messages | Yes, near the turn | Gives compaction handle breadcrumbs. |
 | Compaction stash | Yes, in compaction details | No direct prompt body | Records refs cut away by the latest compaction. |
-| `[MRC refs]` suffix | No, rebuilt per model call | Yes, always last | Advertises latest-compaction stashed refs only. |
+| `[MRC refs]` metadata | No, rebuilt per model call | Yes, before the latest user message | Advertises latest-compaction stashed refs only. |
 
 Design decisions:
 
 - **Exact handles beat fuzzy search.** The model should recover known stashed facts by handle, not search the whole transcript.
 - **Anchors are not user-facing.** The model is told not to mention or expose handles unless explicitly asked about compaction internals.
 - **A handle is not evidence.** The model should call `mrc_lookup` before relying on hidden contents.
-- **The suffix is ephemeral.** It is appended after the current user message so earlier context remains cacheable.
+- **The metadata is ephemeral.** It is inserted immediately before the latest user message so the model still sees the real user prompt as the final instruction.
 
 ## Source recoverability
 
@@ -222,14 +222,14 @@ Config lives at `~/.pi/agent/pi-mrc-config.json` and is scaffolded on first load
 
 ## Compaction reports
 
-After pi-mrc compacts, it emits a report card with:
+After pi-mrc compacts, it persists a machine-readable report in `compaction.details.report` and shows a concise notification. Use `/pi-mrc-report` to inspect details:
 
 - source and kept message counts,
 - skipped internal message counts,
 - summary size and total MRC compaction timing,
 - compaction details containing the hidden `modelReferenceIndex` stash.
 
-Artifacts are written under `/tmp/pi-mrc-reports`.
+`/pi-mrc-report` writes Markdown/JSON artifacts under `/tmp/pi-mrc-reports`.
 
 ## Benchmarking and validation
 
