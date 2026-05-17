@@ -2,7 +2,7 @@
 
 This is a fork of `@sting8k/pi-vcc`, currently installed from GitHub or a local clone.
 
-`pi-mrc` is a Model-Reference Compactor for [Pi](https://github.com/badlogic/pi-mono). It compacts conversation history into a small continuation state, stashes recoverable detail behind exact handles, and injects only the latest needed lookup metadata immediately before the current user prompt.
+`pi-mrc` is a Model-Reference Compactor for [Pi](https://github.com/badlogic/pi-mono). It compacts conversation history into a small continuation state, stashes recoverable detail behind exact handles, and injects only the latest needed lookup metadata as a late ephemeral block immediately before the current user prompt.
 
 The goal is not fuzzy transcript search or the shortest possible summary. The goal is: **after compaction, the next agent should know what to do, have room to work, and recover exact hidden context by handle when needed.**
 
@@ -286,7 +286,7 @@ Recent validation for the MRC path passed:
 ## Design principles
 
 - **MRC + exact lookup is the product.** Fuzzy recall is intentionally out of scope.
-- **Keep dynamic refs late.** The latest ref index is an ephemeral postfix, not summary text.
+- **Keep dynamic refs late.** The latest ref index is a late ephemeral block immediately before the current user prompt, not summary text.
 - **Keep handles internal.** Refs are agent continuity metadata, not user-facing prose.
 - **Reread source.** File/symbol locators are safer than copied code snippets.
 - **Preserve unrecoverable facts.** Exact errors, constraints, benchmark results, and user decisions must remain in prompt or lookup.

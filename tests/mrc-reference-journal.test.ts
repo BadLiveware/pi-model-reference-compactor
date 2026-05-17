@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { registerMrcReferenceJournalHook } from "../src/hooks/mrc-reference-journal";
 import {
+  buildCompactionMrcReferenceIndex,
   buildMrcReferenceJournal,
   insertBeforeLatestUserMessage,
   PI_MRC_REFERENCES_TYPE,
@@ -99,6 +100,43 @@ describe("MRC reference prompt metadata", () => {
     ], { createdAt: "2026-05-14T00:00:00.000Z" });
 
     expect(journal?.refs ?? []).toEqual([]);
+  });
+
+  test("does not leak identifier-like topic tokens into new ref summaries", () => {
+    const secretLike = "Fix production token sk_live_abcd1234 and customerSecretAlpha in the retry handler after validation fails.";
+    const journal = buildMrcReferenceJournal([
+      { role: "user", content: [{ type: "text", text: secretLike }], timestamp: 0 } as any,
+    ], { createdAt: "2026-05-14T00:00:00.000Z" });
+
+    const rendered = renderMrcReferenceJournalContent(journal!);
+    expect(rendered).toContain("ref:");
+    expect(rendered).not.toContain("sk_live_abcd1234");
+    expect(rendered).not.toContain("customerSecretAlpha");
+  });
+
+  test("carries previous compaction refs even when they no longer render", () => {
+    const carried = buildCompactionMrcReferenceIndex([
+      {
+        id: "c1",
+        type: "compaction",
+        details: {
+          modelReferenceIndex: {
+            version: 1,
+            refs: [{
+              id: "goal:legacy",
+              kind: "goal",
+              text: "commit",
+              summary: "lookup if goal context is needed: commit",
+              source: "compaction",
+              createdAt: "2026-05-14T00:00:00.000Z",
+            }],
+          },
+        },
+      },
+      { id: "k1", type: "message", message: { role: "user", content: [{ type: "text", text: "kept" }] } },
+    ], "k1");
+
+    expect(carried?.refs.map((ref) => ref.id)).toContain("goal:legacy");
   });
 
   test("context hook inserts MRC refs before the real latest user prompt", () => {

@@ -90,11 +90,15 @@ const SUMMARY_CUE_PREFIX_RE = /^lookup if [^:]+:\s*/i;
 const EXACT_LOOKUP_VALUE_RE = /\b(?:ERR_[A-Z0-9_]+|request[_-]?id[=:][\w.-]+|CACHE_[A-Z0-9_]+|[a-f0-9]{7,40}|https?:\/\/\S+|[\w./-]+\.[A-Za-z0-9]{1,8})\b/i;
 const PATH_TOKEN_RE = /\b(?:\.{0,2}\/)?(?:[\w.@-]+\/)+[\w.@-]+(?:\.[A-Za-z0-9][\w.-]*)?\b/g;
 const SOURCE_LOCATOR_PATH_RE = /^Source locator:\s*([^;]+)(?:;|$)/;
-const TOPIC_STOPWORDS = new Set([
-  "about", "after", "again", "also", "been", "before", "being", "check", "could", "current", "details", "especially", "from",
-  "have", "honestly", "into", "lookup", "needed", "other", "please", "probably", "rather", "should", "some", "than", "that",
-  "their", "there", "these", "this", "turn", "user", "using", "what", "when", "where", "which", "with", "would",
-]);
+const SAFE_TOPIC_CUES: Array<[RegExp, string]> = [
+  [/\b(compact|compaction|mrc|lookup|ref|refs|metadata)\b/i, "MRC metadata"],
+  [/\b(prompt|instruction|agent|model|context)\b/i, "prompt context"],
+  [/\b(test|tests|validation|verify|regression)\b/i, "validation"],
+  [/\b(commit|branch|pr|pull request|review)\b/i, "review workflow"],
+  [/\b(config|setting|option|flag)\b/i, "configuration"],
+  [/\b(error|failed|failure|blocker|diagnostic)\b/i, "error handling"],
+  [/\b(implement|fix|patch|change|refactor)\b/i, "implementation"],
+];
 
 const normalizeForLookupDelta = (text: string): string => text.replace(/`/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 const summaryCueOf = (summary: string): string => summary.replace(SUMMARY_CUE_PREFIX_RE, "").trim();
@@ -125,11 +129,8 @@ const pathCueOf = (text: string): string | undefined => {
 };
 
 const topicCueOf = (text: string): string | undefined => {
-  const words = unique((text.match(/\b[A-Za-z][A-Za-z0-9_-]{2,}\b/g) ?? [])
-    .map((word) => word.toLowerCase())
-    .filter((word) => !TOPIC_STOPWORDS.has(word)))
-    .slice(0, 4);
-  return words.length > 0 ? words.join(", ") : undefined;
+  const cues = unique(SAFE_TOPIC_CUES.filter(([pattern]) => pattern.test(text)).map(([, cue]) => cue)).slice(0, 2);
+  return cues.length > 0 ? cues.join(", ") : undefined;
 };
 
 const sourceLocatorPathOf = (text: string): string | undefined => text.match(SOURCE_LOCATOR_PATH_RE)?.[1]?.trim();
@@ -348,11 +349,8 @@ export const buildCompactionMrcReferenceIndex = (
   const newStashEntries = branchEntries.slice(Math.max(0, lastCompactionIdx + 1), cutEndIdx);
 
   const previousStash = refsFromLatestCompaction(branchEntries, limit);
-  const newStash = refsFromMrcReferenceEntries(newStashEntries);
-  const refs = latestUniqueRefs(
-    markAsCompactionRefs([...previousStash, ...newStash]).filter(refAddsLookupValue),
-    limit,
-  );
+  const newStash = refsFromMrcReferenceEntries(newStashEntries).filter(refAddsLookupValue);
+  const refs = latestUniqueRefs(markAsCompactionRefs([...previousStash, ...newStash]), limit);
   return refs.length > 0 ? { version: 1, refs } : undefined;
 };
 
