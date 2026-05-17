@@ -1,11 +1,21 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { convertToLlm } from "@mariozechner/pi-coding-agent";
 import { writeFileSync } from "fs";
-import { compile } from "../core/summarize";
-import { loadSettings, type PiVccSettings } from "../core/settings";
-import type { PiVccCompactionDetails } from "../details";
+import { loadSettings, type PiMrcSettings } from "../core/settings";
+import { compactWithModelReference } from "../strategies/model-reference";
+import { isPiMrcDisabled } from "../commands/pi-mrc-control";
+import {
+  PI_MRC_COMPACTION_REPORT_TYPE,
+  type PiMrcCompactionReport,
+} from "../core/compaction-report";
+import {
+  buildCompactionMrcReferenceIndex,
+  isMrcAnchorMessage,
+  isMrcReferenceMessage,
+} from "../core/mrc-reference-journal";
+import type { PiMrcCompactionDetails } from "../details";
 
-export const PI_VCC_COMPACT_INSTRUCTION = "__pi_vcc__";
+export const PI_MRC_COMPACT_INSTRUCTION = "__pi_mrc__";
 
 export interface CompactionStats {
   summarized: number;
@@ -14,7 +24,7 @@ export interface CompactionStats {
 }
 
 let lastStats: CompactionStats | null = null;
-let lastCompactWasPiVcc = false;
+let lastCompactWasPiMrc = false;
 export const getLastCompactionStats = () => lastStats;
 
 const formatTokens = (n: number): string => {
@@ -22,202 +32,90 @@ const formatTokens = (n: number): string => {
   return String(n);
 };
 
-const dbg = (settings: PiVccSettings, data: Record<string, unknown>) => {
+const dbg = (settings: PiMrcSettings, data: Record<string, unknown>) => {
   if (!settings.debug) return;
-  try { writeFileSync("/tmp/pi-vcc-debug.json", JSON.stringify(data, null, 2)); } catch {}
+  try { writeFileSync("/tmp/pi-mrc-debug.json", JSON.stringify(data, null, 2)); } catch {}
 };
 
-const previewContent = (content: unknown): string => {
-  if (typeof content === "string") return content.slice(0, 300);
-  if (Array.isArray(content)) {
-    return content
-      .map((c: any) => {
-        if (c?.type === "text") return c.text ?? "";
-        if (c?.type === "toolCall") return `[toolCall:${c.name}]`;
-        if (c?.type === "thinking") return `[thinking]`;
-        if (c?.type === "image") return `[image:${c.mimeType}]`;
-        return `[${c?.type ?? "unknown"}]`;
-      })
-      .join("\n")
-      .slice(0, 300);
-  }
-  return "";
+const isPiMrcReportMessage = (message: any): boolean =>
+  message?.role === "custom" && message?.customType === PI_MRC_COMPACTION_REPORT_TYPE;
+
+type PreparationCancelReason = "no_live_messages";
+
+const REASON_MESSAGES: Record<PreparationCancelReason, string> = {
+  no_live_messages: "pi-mrc: Nothing to compact (no live messages)",
 };
 
-interface EntryWithMessage {
-  entry: { id: string; type: string };
-  message: { role: string; content: unknown };
-}
-
-export type OwnCutCancelReason =
-  | "no_live_messages"
-  | "too_few_live_messages"
-  | "no_user_message";
-
-export type OwnCutResult =
-  | { ok: true; messages: any[]; firstKeptEntryId: string; compactAll: boolean }
-  | { ok: false; reason: OwnCutCancelReason };
-
-export function buildOwnCut(branchEntries: any[]): OwnCutResult {
-  // Find the last compaction entry and its firstKeptEntryId
-  let lastCompactionIdx = -1;
-  let lastKeptId: string | undefined;
-  for (let i = branchEntries.length - 1; i >= 0; i--) {
-    if (branchEntries[i].type === "compaction") {
-      lastCompactionIdx = i;
-      lastKeptId = branchEntries[i].firstKeptEntryId;
-      break;
-    }
-  }
-
-  // Orphan recovery: triggers when lastKeptId is set to "" (sentinel from prior
-  // compact-all) OR set to an id that no longer exists in the branch. In both cases,
-  // start collecting from right after the last compaction entry.
-  const hasPriorCompaction = lastCompactionIdx >= 0;
-  const hasValidKeptId = !!lastKeptId && branchEntries.some((e: any) => e.id === lastKeptId);
-  const orphanRecovery = hasPriorCompaction && !hasValidKeptId;
-
-  // Collect live messages
-  const liveMessages: EntryWithMessage[] = [];
-  if (orphanRecovery) {
-    for (let i = lastCompactionIdx + 1; i < branchEntries.length; i++) {
-      const e = branchEntries[i];
-      if (e.type === "compaction") continue;
-      if (e.type === "message" && e.message) {
-        liveMessages.push({ entry: e, message: e.message });
-      }
-    }
-  } else {
-    let foundKept = !lastKeptId; // if no prior compaction, start collecting immediately
-    for (const e of branchEntries) {
-      if (!foundKept && e.id === lastKeptId) foundKept = true;
-      if (!foundKept) continue;
-      if (e.type === "compaction") continue;
-      if (e.type === "message" && e.message) {
-        liveMessages.push({ entry: e, message: e.message });
-      }
-    }
-  }
-
-  if (liveMessages.length === 0) return { ok: false, reason: "no_live_messages" };
-  if (liveMessages.length <= 2) return { ok: false, reason: "too_few_live_messages" };
-
-  // Summarize all messages, keep only the last user message as context
-  let cutIdx = liveMessages.length - 1;
-  while (cutIdx > 0 && liveMessages[cutIdx].message.role !== "user") {
-    cutIdx--;
-  }
-
-  if (cutIdx <= 0) {
-    // Single user prompt scenario (or no user at all).
-    // If there's at least one user message, compact EVERYTHING and keep no tail.
-    // firstKeptEntryId="" is a sentinel: pi-core's buildSessionContext won't match it
-    // (so 0 kept from pre-compaction), and next buildOwnCut triggers orphan recovery.
-    const hasUser = liveMessages.some((m) => m.message.role === "user");
-    if (!hasUser) return { ok: false, reason: "no_user_message" };
-    return {
-      ok: true,
-      messages: liveMessages.map((e) => e.message),
-      firstKeptEntryId: "",
-      compactAll: true,
-    };
-  }
-
-  return {
-    ok: true,
-    messages: liveMessages.slice(0, cutIdx).map((e) => e.message),
-    firstKeptEntryId: liveMessages[cutIdx].entry.id,
-    compactAll: false,
-  };
-}
-
-const REASON_MESSAGES: Record<OwnCutCancelReason, string> = {
-  no_live_messages: "pi-vcc: Nothing to compact (no live messages)",
-  too_few_live_messages: "pi-vcc: Too few messages to compact",
-  no_user_message: "pi-vcc: Cannot compact — no user message found",
-};
+const makeMrcReport = (args: {
+  summary: string;
+  sourceMessageCount: number;
+  keptMessageCount: number;
+  keptTokensEst: number;
+  skippedInternalMessageCount: number;
+  tokensBefore: number;
+  previousSummaryUsed: boolean;
+  totalMs: number;
+}): PiMrcCompactionReport => ({
+  compactor: "pi-mrc",
+  version: 1,
+  sourceMessageCount: args.sourceMessageCount,
+  keptMessageCount: args.keptMessageCount,
+  keptTokensEst: args.keptTokensEst,
+  skippedInternalMessageCount: args.skippedInternalMessageCount,
+  tokensBefore: args.tokensBefore,
+  summaryChars: args.summary.length,
+  previousSummaryUsed: args.previousSummaryUsed,
+  firstChangedLayer: args.previousSummaryUsed ? "Model-Ref Summary" : undefined,
+  firstChangedPolicy: args.previousSummaryUsed ? "stable-current" : undefined,
+  stableSectionCount: 1,
+  stableUnchangedCount: 0,
+  stableChangedSections: args.previousSummaryUsed ? ["Model-Ref Summary"] : [],
+  recentSectionCount: 0,
+  cappedSections: [],
+  sections: [{
+    name: "Model-Ref Summary",
+    title: "Model-Ref Summary",
+    role: "current",
+    policy: "stable-current",
+    status: "new",
+    itemCount: 1,
+    renderedItemCount: 1,
+    chars: args.summary.length,
+    reason: `MRC summary generated in ${args.totalMs.toFixed(1)}ms`,
+    preview: [args.summary.replace(/\s+/g, " ").slice(0, 180)],
+  }],
+  warnings: [],
+});
 
 export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
-  pi.on("session_before_compact", (event, ctx) => {
+  pi.on("session_before_compact", async (event, ctx) => {
     const { preparation, branchEntries, customInstructions } = event;
     const settings = loadSettings();
 
-    // Always handle explicit /pi-vcc marker.
-    // Otherwise, only handle when user opted in via settings.
-    const isPiVcc = customInstructions === PI_VCC_COMPACT_INSTRUCTION;
-    if (!isPiVcc && !settings.overrideDefaultCompaction) return;
+    const isPiMrc = customInstructions === PI_MRC_COMPACT_INSTRUCTION;
+    if (!isPiMrc && isPiMrcDisabled(ctx.sessionManager.getSessionFile())) return;
+    if (!isPiMrc && !settings.overrideDefaultCompaction) return;
 
-    const ownCut = buildOwnCut(branchEntries as any[]);
-    if (!ownCut.ok) {
-      const lastComp = [...branchEntries].reverse().find((e: any) => e.type === "compaction");
-      const lastCompIdx = lastComp ? (branchEntries as any[]).indexOf(lastComp) : -1;
-
-      // Recompute liveMessages view (same logic as buildOwnCut) for diagnostic
-      const lastKeptId: string | undefined = lastComp?.firstKeptEntryId;
-      const hasPriorCompaction = lastCompIdx >= 0;
-      const hasValidKeptId = !!lastKeptId && (branchEntries as any[]).some((e: any) => e.id === lastKeptId);
-      const diagOrphan = hasPriorCompaction && !hasValidKeptId;
-      const liveRoles: string[] = [];
-      if (diagOrphan) {
-        for (let i = lastCompIdx + 1; i < branchEntries.length; i++) {
-          const e = (branchEntries as any[])[i];
-          if (e.type === "compaction") continue;
-          if (e.type === "message" && e.message) liveRoles.push(e.message.role);
-        }
-      } else {
-        let foundKept = !lastKeptId;
-        for (const e of branchEntries as any[]) {
-          if (!foundKept && e.id === lastKeptId) foundKept = true;
-          if (!foundKept) continue;
-          if (e.type === "compaction") continue;
-          if (e.type === "message" && e.message) liveRoles.push(e.message.role);
-        }
-      }
-      const userIndices = liveRoles.reduce<number[]>((acc, r, i) => (r === "user" ? (acc.push(i), acc) : acc), []);
-
-      dbg(settings, {
-        cancelled: true,
-        reason: ownCut.reason,
-        isPiVcc,
-        counts: {
-          total: branchEntries.length,
-          messages: (branchEntries as any[]).filter((e: any) => e.type === "message").length,
-          compactions: (branchEntries as any[]).filter((e: any) => e.type === "compaction").length,
-          entriesAfterLastCompaction: lastCompIdx >= 0 ? branchEntries.length - lastCompIdx - 1 : null,
-        },
-        liveMessages: {
-          count: liveRoles.length,
-          userCount: userIndices.length,
-          firstUserIdx: userIndices[0] ?? null,
-          lastUserIdx: userIndices[userIndices.length - 1] ?? null,
-          roleSequence: liveRoles.length <= 30
-            ? liveRoles
-            : [...liveRoles.slice(0, 10), "...", ...liveRoles.slice(-10)],
-        },
-        lastCompaction: lastComp ? {
-          hasFirstKeptEntryId: !!lastComp.firstKeptEntryId,
-          foundInBranch: lastComp.firstKeptEntryId
-            ? (branchEntries as any[]).some((e: any) => e.id === lastComp.firstKeptEntryId)
-            : null,
-        } : null,
-        tail: (branchEntries as any[]).slice(-5).map((e: any) => ({
-          type: e.type,
-          role: e.type === "message" ? e.message?.role : undefined,
-          hasContent: e.type === "message" ? e.message?.content != null : undefined,
-        })),
-      });
-
-      try {
-        ctx?.ui?.notify?.(REASON_MESSAGES[ownCut.reason], "warning");
-      } catch {}
+    const rawAgentMessages = [
+      ...(Array.isArray(preparation.messagesToSummarize) ? preparation.messagesToSummarize : []),
+      ...(Array.isArray(preparation.turnPrefixMessages) ? preparation.turnPrefixMessages : []),
+    ];
+    if (rawAgentMessages.length === 0) {
+      const reason: PreparationCancelReason = "no_live_messages";
+      dbg(settings, { cancelled: true, reason, isPiMrc });
+      try { ctx?.ui?.notify?.(REASON_MESSAGES[reason], "warning"); } catch {}
       return { cancel: true };
     }
 
-    const agentMessages = ownCut.messages;
-    const firstKeptEntryId = ownCut.firstKeptEntryId;
+    const isInternalMessage = (message: any): boolean =>
+      isPiMrcReportMessage(message) || isMrcReferenceMessage(message) || isMrcAnchorMessage(message);
+    const skippedInternalMessageCount = rawAgentMessages.filter(isInternalMessage).length;
+    const agentMessages = rawAgentMessages.filter((message: any) => !isInternalMessage(message));
+    const firstKeptEntryId = typeof preparation.firstKeptEntryId === "string"
+      ? preparation.firstKeptEntryId
+      : "";
     const messages = convertToLlm(agentMessages);
 
-    // Count kept messages and estimate tokens
     const keptIdx = (branchEntries as any[]).findIndex((e: any) => e.id === firstKeptEntryId);
     const keptEntries = keptIdx >= 0
       ? (branchEntries as any[]).slice(keptIdx).filter((e: any) => e.type === "message")
@@ -233,79 +131,84 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       }, 0);
       return sum;
     }, 0);
+    const keptTokensEst = Math.round(keptChars / 4);
     lastStats = {
       summarized: agentMessages.length,
       kept: keptEntries.length,
-      keptTokensEst: Math.round(keptChars / 4),
+      keptTokensEst,
     };
 
-    const config = settings;
-
-    const summary = compile({
-      messages,
+    const modelReferenceIndex = buildCompactionMrcReferenceIndex(branchEntries as any[], firstKeptEntryId);
+    const mrcResult = await compactWithModelReference(messages, settings, {
       previousSummary: preparation.previousSummary,
-      fileOps: {
-        readFiles: [...preparation.fileOps.read],
-        modifiedFiles: [...preparation.fileOps.written, ...preparation.fileOps.edited],
-      },
+    });
+    const summary = mrcResult.summary;
+    const report = makeMrcReport({
+      summary,
+      sourceMessageCount: agentMessages.length,
+      keptMessageCount: keptEntries.length,
+      keptTokensEst,
+      skippedInternalMessageCount,
+      tokensBefore: preparation.tokensBefore,
+      previousSummaryUsed: Boolean(preparation.previousSummary),
+      totalMs: mrcResult.stats.totalMs,
     });
 
-    const branchIds = branchEntries.map((e: any) => e.id);
-    const cutIdx = branchIds.indexOf(firstKeptEntryId);
-    const cutWindow = cutIdx >= 0
-      ? branchEntries.slice(Math.max(0, cutIdx - 3), Math.min(branchEntries.length, cutIdx + 3)).map((e: any) => ({
-          id: e.id,
-          type: e.type,
-          role: e.type === "message" ? e.message?.role : undefined,
-          preview: e.type === "message" ? previewContent(e.message?.content) : undefined,
-        }))
-      : [];
-
-    dbg(config, {
-      usedOwnCut: true,
+    dbg(settings, {
+      strategy: "mrc",
       messagesToSummarize: agentMessages.length,
-      messagesPreviewHead: agentMessages.slice(0, 3).map((m: any) => ({ role: m.role, preview: previewContent(m.content) })),
-      messagesPreviewTail: agentMessages.slice(-3).map((m: any) => ({ role: m.role, preview: previewContent(m.content) })),
-      convertedMessages: messages.length,
       firstKeptEntryId,
-      cutWindow,
       tokensBefore: preparation.tokensBefore,
       summaryLength: summary.length,
       summaryPreview: summary.slice(0, 500),
-      sections: [...summary.matchAll(/^\[(.+?)\]/gm)].map((m) => m[1]),
+      totalMs: mrcResult.stats.totalMs,
+      stashedRefCount: modelReferenceIndex?.refs.length ?? 0,
     });
 
-    const details: PiVccCompactionDetails = {
-      compactor: "pi-vcc",
-      version: 1,
-      sections: [...summary.matchAll(/^\[(.+?)\]/gm)].map((m) => m[1]),
+    const details: PiMrcCompactionDetails = {
+      compactor: "pi-mrc",
+      version: 3,
+      sections: ["Model-Ref Summary"],
       sourceMessageCount: agentMessages.length,
       previousSummaryUsed: Boolean(preparation.previousSummary),
+      report,
+      ...(modelReferenceIndex ? { modelReferenceIndex } : {}),
     };
 
-    lastCompactWasPiVcc = isPiVcc;
+    lastCompactWasPiMrc = isPiMrc;
 
     return {
       compaction: {
         summary,
-        details,
-        tokensBefore: preparation.tokensBefore,
         firstKeptEntryId,
+        tokensBefore: preparation.tokensBefore,
+        details,
       },
     };
   });
 
-  // Fire success toast for /compact path only (delayed to let UI settle).
-  // /pi-vcc path uses its own onComplete callback in the command handler.
   pi.on("session_compact", (event, ctx) => {
     if (!event.fromExtension) return;
-    if (lastCompactWasPiVcc) return; // /pi-vcc handles its own toast via onComplete
-    const stats = lastStats;
+
+    const details = (event.compactionEntry as any)?.details as PiMrcCompactionDetails | undefined;
+    const report = details?.compactor === "pi-mrc" ? details.report : undefined;
+
+    // Do not enqueue report cards as next-turn custom messages. Multiple
+    // compactions can happen before the next user prompt, and Pi flushes every
+    // pending nextTurn message into that prompt, producing duplicate cards and
+    // extra LLM context. The report remains persisted in compaction.details and
+    // is available through /pi-mrc-report.
+    if (lastCompactWasPiMrc) return;
+    const stats = lastStats ?? (report ? {
+      summarized: report.sourceMessageCount,
+      kept: report.keptMessageCount,
+      keptTokensEst: report.keptTokensEst,
+    } : null);
     if (!stats) return;
     setTimeout(() => {
       try {
         ctx?.ui?.notify?.(
-          `pi-vcc: ${stats.summarized} source entries processed; tail kept ${stats.kept} (~${formatTokens(stats.keptTokensEst)} tok).`,
+          `pi-mrc: ${stats.summarized} source entries processed; tail kept ${stats.kept} (~${formatTokens(stats.keptTokensEst)} tok). Use /pi-mrc-report for details.`,
           "info",
         );
       } catch {}

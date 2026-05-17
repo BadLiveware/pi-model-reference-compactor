@@ -4,9 +4,11 @@ import type { SectionData } from "../src/sections";
 
 const empty: SectionData = {
   sessionGoal: [],
+  currentScope: [],
   outstandingContext: [],
   filesAndChanges: [],
   commits: [],
+  evidenceHandles: [],
   userPreferences: [],
   briefTranscript: "",
   transcriptEntries: [],

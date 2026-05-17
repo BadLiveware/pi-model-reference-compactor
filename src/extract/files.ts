@@ -8,7 +8,7 @@ interface FileActivity {
 }
 
 const FILE_READ_TOOLS = new Set([
-  "Read", "read_file", "View",
+  "Read", "read", "read_file", "View",
 ]);
 
 const FILE_WRITE_TOOLS = new Set([

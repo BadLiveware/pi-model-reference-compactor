@@ -1,26 +1,26 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { getLastCompactionStats, PI_VCC_COMPACT_INSTRUCTION } from "../hooks/before-compact";
+import { getLastCompactionStats, PI_MRC_COMPACT_INSTRUCTION } from "../hooks/before-compact";
 
 const formatTokens = (n: number): string => {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
 };
 
-export const registerPiVccCommand = (pi: ExtensionAPI) => {
-  pi.registerCommand("pi-vcc", {
-    description: "Compact conversation with pi-vcc structured summary",
+export const registerPiMrcCommand = (pi: ExtensionAPI) => {
+  pi.registerCommand("pi-mrc", {
+    description: "Compact conversation with pi-mrc model-reference compaction",
     handler: async (_args, ctx) => {
       ctx.compact({
-        customInstructions: PI_VCC_COMPACT_INSTRUCTION,
+        customInstructions: PI_MRC_COMPACT_INSTRUCTION,
         onComplete: () => {
           const stats = getLastCompactionStats();
           if (stats) {
             ctx.ui.notify(
-              `pi-vcc: ${stats.summarized} source entries processed; tail kept ${stats.kept} (~${formatTokens(stats.keptTokensEst)} tok).`,
+              `pi-mrc: ${stats.summarized} source entries processed; tail kept ${stats.kept} (~${formatTokens(stats.keptTokensEst)} tok).`,
               "info",
             );
           } else {
-            ctx.ui.notify("Compacted with pi-vcc", "info");
+            ctx.ui.notify("Compacted with pi-mrc", "info");
           }
         },
         onError: (err) => {

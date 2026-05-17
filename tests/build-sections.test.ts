@@ -6,7 +6,9 @@ describe("buildSections", () => {
   it("returns all-empty for no blocks", () => {
     const r = buildSections({ blocks: [] });
     expect(r.sessionGoal).toEqual([]);
+    expect(r.currentScope).toEqual([]);
     expect(r.outstandingContext).toEqual([]);
+    expect(r.evidenceHandles).toEqual([]);
     expect(r.briefTranscript).toBe("");
   });
 
@@ -55,5 +57,45 @@ describe("buildSections", () => {
     const r = buildSections({ blocks });
     const matches = r.briefTranscript.match(/\[assistant\]/g);
     expect(matches?.length).toBe(1);
+  });
+
+  it("captures exact evidence handles from tool calls and errors", () => {
+    const blocks: NormalizedBlock[] = [
+      { kind: "tool_call", name: "read", args: { path: "src/auth/session.ts" } },
+      { kind: "tool_result", name: "bash", text: "FAIL tests/auth-refresh.test.ts\nERR_REFRESH_AFTER_RESET expired token", isError: true },
+      { kind: "tool_result", name: "read", text: "probe_id=cache_probe_A17\nspan=spn_cache_keep_91\ncommit=9f3a2b1", isError: false },
+    ];
+    const r = buildSections({ blocks });
+    const evidence = r.evidenceHandles.join("\n");
+    expect(r.filesAndChanges.join("\n")).toContain("src/auth/session.ts");
+    expect(evidence).toContain("ERR_REFRESH_AFTER_RESET");
+    expect(evidence).toContain("cache_probe_A17");
+    expect(evidence).toContain("spn_cache_keep_91");
+    expect(evidence).toContain("9f3a2b1");
+  });
+
+  it("separates scope changes from stable goals", () => {
+    const blocks: NormalizedBlock[] = [
+      { kind: "user", text: "Build a local ClickHouse-based OpenTelemetry ingestion and query system." },
+      { kind: "user", text: "Good, now lets add meta monitoring for the chart itself." },
+      { kind: "user", text: "Status update: validate dashboard provisioning next." },
+    ];
+    const r = buildSections({ blocks });
+    expect(r.sessionGoal).toEqual(["Build a local ClickHouse-based OpenTelemetry ingestion and query system."]);
+    expect(r.currentScope).toEqual(["Good, now lets add meta monitoring for the chart itself."]);
+  });
+
+  it("summarizes bulky tool errors without pasting low-value log lines", () => {
+    const text = [
+      ...Array.from({ length: 20 }, (_, i) => `debug ${i}: warmup ok`),
+      "CRITICAL CACHE_MISS_AT_LAYER_2B request_id=req_cache_482",
+    ].join("\n");
+    const blocks: NormalizedBlock[] = [
+      { kind: "tool_result", name: "bash", text, isError: true },
+    ];
+    const r = buildSections({ blocks });
+    expect(r.briefTranscript).toContain("CACHE_MISS_AT_LAYER_2B");
+    expect(r.briefTranscript).not.toContain("debug 0: warmup ok");
+    expect(r.outstandingContext.join("\n")).toContain("CACHE_MISS_AT_LAYER_2B");
   });
 });

@@ -27,4 +27,11 @@ describe("extractPreferences", () => {
     ];
     expect(extractPreferences(blocks).length).toBe(1);
   });
+
+  it("ignores copied error text that says always include stack traces", () => {
+    const blocks: NormalizedBlock[] = [
+      { kind: "user", text: "METRICS ENGI... . (SYNTAX_ERROR), Stack trace (when copying this message, always include the lines below):" },
+    ];
+    expect(extractPreferences(blocks)).toEqual([]);
+  });
 });

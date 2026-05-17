@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+*.tsbuildinfo
+bun.lock
+bench-results*.jsonl
+bench-results*.json
+.pi*
+research
+docs

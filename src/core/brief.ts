@@ -1,5 +1,6 @@
 import type { NormalizedBlock } from "../types";
-import { clip, firstLine } from "./content";
+import { clip } from "./content";
+import { summarizeToolResultForPrompt } from "./tool-result-summary";
 import { extractPath } from "./tool-args";
 import { collapseSkillText } from "./skill-collapse";
 
@@ -181,7 +182,7 @@ export const buildBriefSections = (blocks: NormalizedBlock[]): BriefLine[] => {
       }
       case "tool_result": {
         if (b.isError) {
-          const body = firstLine(b.text, 150);
+          const body = summarizeToolResultForPrompt(b.text);
           // Drop empty/placeholder error bodies — keep the line only if it carries info.
           if (!body || body === "(no output)") break;
           const ref = b.sourceIndex != null ? ` (#${b.sourceIndex})` : "";

@@ -2,29 +2,28 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
 
-export const SETTINGS_PATH_DEFAULT = join(homedir(), ".pi", "agent", "pi-vcc-config.json");
-const settingsPath = (): string => process.env.PI_VCC_CONFIG_PATH ?? SETTINGS_PATH_DEFAULT;
+export const SETTINGS_PATH_DEFAULT = join(homedir(), ".pi", "agent", "pi-mrc-config.json");
+const settingsPath = (): string => process.env.PI_MRC_CONFIG_PATH ?? SETTINGS_PATH_DEFAULT;
 /** Backwards-compat export. Resolves at access time, not import time. */
 export const SETTINGS_PATH = settingsPath();
 
-export interface PiVccSettings {
+export interface PiMrcSettings {
   /**
-   * When true, pi-vcc handles ALL compactions:
+   * When true, pi-mrc handles ALL compactions:
    *   - /compact (no args)
    *   - /compact <text>
    *   - auto threshold / overflow
-   *   - /pi-vcc (always handled regardless)
+   *   - /pi-mrc (always handled regardless)
    *
-   * When false (default), pi-vcc only handles /pi-vcc; everything else
-   * falls back to pi core's default LLM-based compaction.
+   * When false, pi-mrc only handles /pi-mrc; everything else falls back to Pi.
    */
   overrideDefaultCompaction: boolean;
-  /** Write debug snapshot to /tmp/pi-vcc-debug.json on each compaction. */
+  /** Write debug snapshot to /tmp/pi-mrc-debug.json on each compaction. */
   debug: boolean;
 }
 
-export const DEFAULT_SETTINGS: PiVccSettings = {
-  overrideDefaultCompaction: false,
+export const DEFAULT_SETTINGS: PiMrcSettings = {
+  overrideDefaultCompaction: true,
   debug: false,
 };
 
@@ -36,14 +35,14 @@ const readJson = (path: string): Record<string, unknown> | null => {
   }
 };
 
-export function loadSettings(): PiVccSettings {
+export function loadSettings(): PiMrcSettings {
   const parsed = readJson(settingsPath());
   if (!parsed || typeof parsed !== "object") return { ...DEFAULT_SETTINGS };
-  return { ...DEFAULT_SETTINGS, ...(parsed as Partial<PiVccSettings>) };
+  return { ...DEFAULT_SETTINGS, ...(parsed as Partial<PiMrcSettings>) };
 }
 
 /**
- * Ensure ~/.pi/agent/pi-vcc-config.json exists with default keys.
+ * Ensure ~/.pi/agent/pi-mrc-config.json exists with default keys.
  * - File missing → create with full default block.
  * - File exists but invalid JSON → no-op (don't clobber user file).
  * - File exists and valid → fill in missing default keys, preserve existing values.

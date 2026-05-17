@@ -8,13 +8,25 @@ const SCOPE_CHANGE_RE =
 const TASK_RE =
   /\b(fix|implement|add|create|build|refactor|debug|investigate|update|remove|delete|migrate|deploy|test|write|set up)\b/i;
 
+const PREFERENCE_RE =
+  /\b(prefer(?:s|red|ring)?|always use|never use|please use|please avoid|do not use|don'?t use)\b/i;
+const DIRECT_PREFERENCE_RE = /\b(?:prefer(?:s|red|ring)?|please use|please avoid|always use|never use)\b/i;
+const PREFERENCE_WITH_TASK_RE =
+  /\b(fix|implement|add|create|build|refactor|debug|investigate|update|remove|delete|migrate|deploy|write|set up)\b|\btest\s+(?:with|using|via)\b/i;
+
 const NOISE_SHORT_RE = /^(ok|yes|no|sure|yeah|yep|go|hi|hey|thx|thanks|ok\b.*|y|n|k)\s*[.!?]*$/i;
+const VOLATILE_STATUS_RE = /^\s*(?:current blocker|blocker update|status update|next step)\s*:/i;
 
 // Reject lines that are clearly not user goals (pasted output, code, paths, tool dumps)
 // or meta-prompt boilerplate (command templates like `/issues` that start with "For each issue:"
 // followed by numbered "Read the issue in full..." steps).
 const NON_GOAL_RE =
   /^\s*[\[│├└─╭╰]|```|^\s*(=[A-Z]+\(|function |const |let |var |import |export |class )|^(https?:|file:|\/[A-Za-z])|\\n|^\s*For each\b|\bin full\b[^\n]*\b(comments|issue|issues|PRs?|linked)\b/;
+
+const TABLE_OR_STATUS_RE =
+  /\b(READY\s+STATUS\s+RESTARTS|\d+\/\d+\s+(?:Running|Pending|Completed|Error|CrashLoopBackOff)\b)/;
+const CONFIG_FRAGMENT_RE = /^\s*(?:apiVersion|kind|metadata|labels|annotations|spec|data|creationTimestamp|name|namespace|app(?:\.kubernetes\.io\/[-\w]+)?|chart|grafana_dashboard|heritage|release|resourceVersion|uid)\s*:/i;
+const LOG_OR_COMMAND_RE = /^\s*(?:[❯$>]\s+|\{.*"(?:time|level|msg)"\s*:)/;
 
 // Signals that the rest of the user message is a command template (e.g. /issues),
 // in which case we should stop collecting goals at the signal line.
@@ -31,12 +43,20 @@ const stripLeadingBullet = (line: string): string =>
 
 const MAX_GOAL_CHARS = 200;
 
+const isPreferenceOnly = (text: string): boolean =>
+  (DIRECT_PREFERENCE_RE.test(text) || PREFERENCE_RE.test(text)) && !PREFERENCE_WITH_TASK_RE.test(text);
+
 const isSubstantiveGoal = (text: string): boolean => {
   const t = text.trim();
   if (t.length <= 5) return false;
   if (t.length > MAX_GOAL_CHARS) return false;
   if (NOISE_SHORT_RE.test(t)) return false;
+  if (VOLATILE_STATUS_RE.test(t)) return false;
+  if (TABLE_OR_STATUS_RE.test(t)) return false;
+  if (CONFIG_FRAGMENT_RE.test(t)) return false;
+  if (LOG_OR_COMMAND_RE.test(t)) return false;
   if (NON_GOAL_RE.test(t)) return false;
+  if (isPreferenceOnly(t)) return false;
   return true;
 };
 
@@ -44,9 +64,14 @@ const isSubstantiveGoal = (text: string): boolean => {
 // so that pasted outputs below the actual instruction do not trigger matches.
 const LEADING_CHARS = 200;
 
-export const extractGoals = (blocks: NormalizedBlock[]): string[] => {
-  const goals: string[] = [];
-  let latestScopeChange: string[] | null = null;
+export interface GoalExtraction {
+  stableGoals: string[];
+  currentScope: string[];
+}
+
+export const extractGoalState = (blocks: NormalizedBlock[]): GoalExtraction => {
+  const stableGoals: string[] = [];
+  let latestScopeChange: string[] = [];
 
   for (const b of blocks) {
     if (b.kind !== "user") continue;
@@ -57,8 +82,8 @@ export const extractGoals = (blocks: NormalizedBlock[]): string[] => {
       .filter((l) => l.length > 5);
     if (lines.length === 0) continue;
 
-    if (goals.length === 0) {
-      goals.push(...lines.slice(0, 6));
+    if (stableGoals.length === 0) {
+      stableGoals.push(...lines.slice(0, 6));
       continue;
     }
 
@@ -70,10 +95,11 @@ export const extractGoals = (blocks: NormalizedBlock[]): string[] => {
     }
   }
 
-  // Only emit the [Scope change] marker when we actually captured bullets.
-  if (latestScopeChange && latestScopeChange.length > 0) {
-    goals.push("[Scope change]", ...latestScopeChange);
-  }
-
-  return goals.slice(0, 8);
+  return {
+    stableGoals: stableGoals.slice(0, 8),
+    currentScope: latestScopeChange.slice(0, 5),
+  };
 };
+
+export const extractGoals = (blocks: NormalizedBlock[]): string[] =>
+  extractGoalState(blocks).stableGoals;

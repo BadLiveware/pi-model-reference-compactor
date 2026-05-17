@@ -20,16 +20,18 @@ export const capBrief = (text: string): string => {
 };
 
 export const RECALL_NOTE =
-  "Use `vcc_recall` to search for prior work, decisions, and context from before this summary. " +
+  "Use exact reference handles when available to recover prior context. " +
   "Do not redo work already completed.";
 
 export const formatSummary = (data: SectionData): string => {
   const headerParts = [
     section("Session Goal", data.sessionGoal),
+    section("Current Scope", data.currentScope),
     section("Files And Changes", data.filesAndChanges),
     section("Commits", data.commits),
-    section("Outstanding Context", data.outstandingContext),
+    section("Evidence Handles", data.evidenceHandles),
     section("User Preferences", data.userPreferences),
+    section("Outstanding Context", data.outstandingContext),
   ].filter(Boolean);
 
   const parts: string[] = [];
