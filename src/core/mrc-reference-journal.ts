@@ -58,11 +58,6 @@ const shortHash = (text: string): string => {
 const refIdOf = (chunk: CompactionChunk, text = chunk.text): string =>
   `${chunk.kind}:${shortHash(`${chunk.kind}\n${chunk.section}\n${text}`)}`;
 
-const compactText = (text: string, limit = 120): string => {
-  const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length <= limit ? flat : `${flat.slice(0, limit - 3).trimEnd()}...`;
-};
-
 const SOURCE_PATH_RE = /^([^:\n]+\.[A-Za-z0-9][A-Za-z0-9._-]*):\s*([\s\S]+)$/;
 const DECL_SYMBOL_RE = /\b(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|class|interface|type|const|let|var|enum)\s+([A-Za-z_$][\w$]*)/g;
 const CALLISH_SYMBOL_RE = /\b([A-Za-z_$][\w$]*)\s*\(/g;
@@ -91,19 +86,107 @@ const storedTextOf = (chunk: CompactionChunk): string => {
   return chunk.text;
 };
 
+const SUMMARY_CUE_PREFIX_RE = /^lookup if [^:]+:\s*/i;
+const EXACT_LOOKUP_VALUE_RE = /\b(?:ERR_[A-Z0-9_]+|request[_-]?id[=:][\w.-]+|CACHE_[A-Z0-9_]+|[a-f0-9]{7,40}|https?:\/\/\S+|[\w./-]+\.[A-Za-z0-9]{1,8})\b/i;
+const PATH_TOKEN_RE = /\b(?:\.{0,2}\/)?(?:[\w.@-]+\/)+[\w.@-]+(?:\.[A-Za-z0-9][\w.-]*)?\b/g;
+const SOURCE_LOCATOR_PATH_RE = /^Source locator:\s*([^;]+)(?:;|$)/;
+const TOPIC_STOPWORDS = new Set([
+  "about", "after", "again", "also", "been", "before", "being", "check", "could", "current", "details", "especially", "from",
+  "have", "honestly", "into", "lookup", "needed", "other", "please", "probably", "rather", "should", "some", "than", "that",
+  "their", "there", "these", "this", "turn", "user", "using", "what", "when", "where", "which", "with", "would",
+]);
+
+const normalizeForLookupDelta = (text: string): string => text.replace(/`/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+const summaryCueOf = (summary: string): string => summary.replace(SUMMARY_CUE_PREFIX_RE, "").trim();
+
+const summaryRevealsRefBody = (summary: string, text: string): boolean => {
+  const body = normalizeForLookupDelta(text);
+  const cue = normalizeForLookupDelta(summaryCueOf(summary).replace(/\.\.\.$/, ""));
+  if (!body || !cue) return false;
+  if (body.length < 8) return body === cue;
+  if (cue.includes(body)) return true;
+  // Legacy summaries used a prefix-truncated copy of the hidden body. Suppress
+  // those so lookup indexes do not expose the same data lookup would return.
+  return body.startsWith(cue) && cue.length >= Math.min(40, Math.floor(body.length * 0.6));
+};
+
+const textWorthLookup = (text: string): boolean => {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length >= 48) return true;
+  return EXACT_LOOKUP_VALUE_RE.test(normalized);
+};
+
+const pathTokensOf = (text: string): string[] => unique([...text.matchAll(PATH_TOKEN_RE)].map((m) => m[0])).slice(0, 4);
+
+const pathCueOf = (text: string): string | undefined => {
+  const paths = pathTokensOf(text);
+  if (paths.length === 0) return undefined;
+  return paths.length === 1 ? paths[0] : `${paths.length} paths including ${paths[0]}`;
+};
+
+const topicCueOf = (text: string): string | undefined => {
+  const words = unique((text.match(/\b[A-Za-z][A-Za-z0-9_-]{2,}\b/g) ?? [])
+    .map((word) => word.toLowerCase())
+    .filter((word) => !TOPIC_STOPWORDS.has(word)))
+    .slice(0, 4);
+  return words.length > 0 ? words.join(", ") : undefined;
+};
+
+const sourceLocatorPathOf = (text: string): string | undefined => text.match(SOURCE_LOCATOR_PATH_RE)?.[1]?.trim();
+
+const evidenceCueOf = (text: string): string => {
+  if (/\bERR_[A-Z0-9_]+\b/.test(text)) return "error-signature evidence";
+  if (/\brequest[_-]?id\b/i.test(text)) return "request-id evidence";
+  if (/https?:\/\//i.test(text)) return "URL evidence";
+  const pathCue = pathCueOf(text);
+  if (pathCue) return `evidence paths for ${pathCue}`;
+  const topic = topicCueOf(text);
+  return topic ? `evidence about ${topic}` : "evidence detail";
+};
+
+const transcriptCueOf = (text: string): string => {
+  if (/\bgit\s+commit\b|\bcommitted\b|\bcommit:\b/i.test(text)) return "commit-related transcript line";
+  if (/\b(bash|read|edit|write|test|tool)\b/i.test(text)) return "tool/action transcript line";
+  if (/\b(decision|decided|next|patch|fix|implement|rerun)\b/i.test(text)) return "decision/action transcript line";
+  const topic = topicCueOf(text);
+  return topic ? `transcript context about ${topic}` : "transcript context";
+};
+
 const summaryOf = (chunk: CompactionChunk, text = chunk.text): string => {
   switch (chunk.kind) {
-    case "read-context": return `lookup if recent read-file locator is needed: ${compactText(text, 90)}`;
-    case "file": return `lookup if file activity details are needed: ${compactText(text, 90)}`;
+    case "read-context": {
+      const path = sourceLocatorPathOf(text) ?? pathCueOf(text);
+      return `lookup if recent read-file locator is needed: source locator${path ? ` for ${path}` : ""}`;
+    }
+    case "file": {
+      const pathCue = pathCueOf(text);
+      return `lookup if file activity details are needed: file activity${pathCue ? ` for ${pathCue}` : ""}`;
+    }
     case "evidence":
-    case "recent-evidence": return `lookup if evidence details are needed: ${compactText(text, 90)}`;
+    case "recent-evidence": return `lookup if evidence details are needed: ${evidenceCueOf(text)}`;
     case "preference":
-    case "recent-preference": return `lookup if user preference details are needed: ${compactText(text, 90)}`;
-    case "outstanding-context": return `lookup if blocker/error context is needed: ${compactText(text, 90)}`;
-    case "transcript-line": return `lookup if this turn decision/action is needed: ${compactText(text, 90)}`;
-    default: return `lookup if ${chunk.kind} context is needed: ${compactText(text, 90)}`;
+    case "recent-preference": {
+      const topic = topicCueOf(text);
+      return `lookup if user preference details are needed: user preference${topic ? ` about ${topic}` : ""}`;
+    }
+    case "outstanding-context": {
+      const topic = topicCueOf(text);
+      return `lookup if blocker/error context is needed: outstanding context${topic ? ` about ${topic}` : ""}`;
+    }
+    case "transcript-line": return `lookup if this turn decision/action is needed: ${transcriptCueOf(text)}`;
+    case "goal": {
+      const topic = topicCueOf(text);
+      return `lookup if goal context is needed: goal/request context${topic ? ` about ${topic}` : ""}`;
+    }
+    default: {
+      const topic = topicCueOf(text);
+      return `lookup if ${chunk.kind} context is needed: ${chunk.kind} context${topic ? ` about ${topic}` : ""}`;
+    }
   }
 };
+
+const refAddsLookupValue = (ref: MrcReferenceEntry): boolean =>
+  textWorthLookup(ref.text) && !summaryRevealsRefBody(ref.summary, ref.text);
 
 const scoreChunk = (chunk: CompactionChunk): number => {
   const text = chunk.text;
@@ -130,31 +213,33 @@ export const buildMrcReferenceJournal = (
 ): MrcReferenceJournalDetails | undefined => {
   const blocks = filterNoise(normalize(messages));
   const state = buildCompactionState(buildSections({ blocks }));
-  const chunks = chunkCompactionState(state)
+  const candidates = chunkCompactionState(state)
     .map((chunk) => ({ chunk, score: scoreChunk(chunk) }))
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.chunk.id.localeCompare(b.chunk.id))
-    .slice(0, options.maxRefs ?? 8)
-    .map((item) => item.chunk);
+    .sort((a, b) => b.score - a.score || a.chunk.id.localeCompare(b.chunk.id));
 
-  if (chunks.length === 0) return undefined;
+  if (candidates.length === 0) return undefined;
 
   const createdAt = options.createdAt ?? new Date().toISOString();
+  const maxRefs = options.maxRefs ?? 8;
   const seen = new Set<string>();
   const refs: MrcReferenceEntry[] = [];
-  for (const chunk of chunks) {
+  for (const { chunk } of candidates) {
+    if (refs.length >= maxRefs) break;
     const text = storedTextOf(chunk);
     const id = refIdOf(chunk, text);
     if (seen.has(id)) continue;
-    seen.add(id);
-    refs.push({
+    const ref: MrcReferenceEntry = {
       id,
       kind: chunk.kind,
       text,
       summary: summaryOf(chunk, text),
       source: "turn",
       createdAt,
-    });
+    };
+    if (!refAddsLookupValue(ref)) continue;
+    seen.add(id);
+    refs.push(ref);
   }
 
   return refs.length > 0 ? { version: 1, refs } : undefined;
@@ -264,7 +349,10 @@ export const buildCompactionMrcReferenceIndex = (
 
   const previousStash = refsFromLatestCompaction(branchEntries, limit);
   const newStash = refsFromMrcReferenceEntries(newStashEntries);
-  const refs = latestUniqueRefs(markAsCompactionRefs([...previousStash, ...newStash]), limit);
+  const refs = latestUniqueRefs(
+    markAsCompactionRefs([...previousStash, ...newStash]).filter(refAddsLookupValue),
+    limit,
+  );
   return refs.length > 0 ? { version: 1, refs } : undefined;
 };
 
@@ -295,7 +383,7 @@ export const renderEphemeralMrcRefs = (
 ): string | undefined => {
   const visibleText = visibleTextFromMessages(visibleMessages);
   const refs = refsFromLatestCompaction(entries, DEFAULT_STASH_REF_LIMIT)
-    .filter((ref) => !refTextAlreadyVisible(ref, visibleText));
+    .filter((ref) => refAddsLookupValue(ref) && !refTextAlreadyVisible(ref, visibleText));
   const selected = latestUniqueRefs(refs, limit);
   if (selected.length === 0) return undefined;
   return renderMrcReferenceJournalContent({ version: 1, refs: selected });

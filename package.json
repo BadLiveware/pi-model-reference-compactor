@@ -15,9 +15,18 @@
     "url": "git+https://github.com/BadLiveware/pi-model-reference-compactor.git"
   },
   "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-tui": "*",
     "@sinclair/typebox": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*",
+    "bun-types": "*",
+    "typescript": "*"
   },
   "pi": {
     "extensions": [

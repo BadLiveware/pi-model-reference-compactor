@@ -1,8 +1,11 @@
+/// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 import { registerMrcReferenceJournalHook } from "../src/hooks/mrc-reference-journal";
 import {
+  buildMrcReferenceJournal,
   insertBeforeLatestUserMessage,
   PI_MRC_REFERENCES_TYPE,
+  renderEphemeralMrcRefs,
   renderMrcReferenceJournalContent,
   type MrcReferenceJournalDetails,
 } from "../src/core/mrc-reference-journal";
@@ -13,7 +16,7 @@ const refDetails = (): MrcReferenceJournalDetails => ({
     id: "evidence:abc123",
     kind: "evidence",
     text: "Error signature ERR_TEST_123",
-    summary: "lookup if evidence details are needed: Error signature ERR_TEST_123",
+    summary: "lookup if evidence details are needed: error-signature evidence",
     source: "compaction",
     createdAt: "2026-05-14T00:00:00.000Z",
   }],
@@ -46,6 +49,56 @@ describe("MRC reference prompt metadata", () => {
 
     expect(result.at(-1)).toBe(latestUser);
     expect(result.at(-2)).toMatchObject({ role: "custom", customType: PI_MRC_REFERENCES_TYPE });
+  });
+
+  test("does not render lookup refs when the summary already exposes the body", () => {
+    const content = renderEphemeralMrcRefs([{
+      type: "compaction",
+      details: {
+        modelReferenceIndex: {
+          version: 1,
+          refs: [
+            {
+              id: "goal:tiny",
+              kind: "goal",
+              text: "commit",
+              summary: "lookup if goal context is needed: commit",
+              source: "compaction",
+              createdAt: "2026-05-14T00:00:00.000Z",
+            },
+            {
+              id: "goal:prefix",
+              kind: "goal",
+              text: "Honestly, the implementer should inherit everything other than subagent delegation guidance.",
+              summary: "lookup if goal context is needed: Honestly, the implementer should inherit everything other than subagent delegation guidance.",
+              source: "compaction",
+              createdAt: "2026-05-14T00:00:00.000Z",
+            },
+            {
+              id: "evidence:good",
+              kind: "evidence",
+              text: "Error signature ERR_TEST_123",
+              summary: "lookup if evidence details are needed: error-signature evidence",
+              source: "compaction",
+              createdAt: "2026-05-14T00:00:00.000Z",
+            },
+          ],
+        },
+      },
+    }], 8, []);
+
+    expect(content).toContain("ref:evidence:good");
+    expect(content).not.toContain("ref:goal:tiny");
+    expect(content).not.toContain("ref:goal:prefix");
+    expect(content).not.toContain("ERR_TEST_123");
+  });
+
+  test("does not create refs for trivial one-word goals", () => {
+    const journal = buildMrcReferenceJournal([
+      { role: "user", content: [{ type: "text", text: "commit" }], timestamp: 0 } as any,
+    ], { createdAt: "2026-05-14T00:00:00.000Z" });
+
+    expect(journal?.refs ?? []).toEqual([]);
   });
 
   test("context hook inserts MRC refs before the real latest user prompt", () => {
